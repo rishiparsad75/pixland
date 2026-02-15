@@ -34,6 +34,26 @@ const Profile = () => {
                                 </div>
                             </div>
                             <div>
+                                <label className="block text-sm text-gray-500 mb-1">Account Type</label>
+                                <div className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-indigo-500/20 to-purple-500/20 border border-indigo-400/30 text-white">
+                                    <div className={`px-3 py-1 rounded-full text-sm font-semibold ${user.role === 'photographer'
+                                            ? 'bg-gradient-to-r from-purple-500 to-pink-500'
+                                            : user.role === 'super-admin'
+                                                ? 'bg-gradient-to-r from-red-500 to-orange-500'
+                                                : 'bg-gradient-to-r from-blue-500 to-cyan-500'
+                                        }`}>
+                                        {user.role === 'super-admin' ? 'Super Admin' : user.role === 'photographer' ? 'Photographer' : 'User'}
+                                    </div>
+                                    <span className="text-gray-300 text-sm">
+                                        {user.role === 'photographer'
+                                            ? 'Upload and manage event photos'
+                                            : user.role === 'super-admin'
+                                                ? 'Full system access'
+                                                : 'Download and view photos'}
+                                    </span>
+                                </div>
+                            </div>
+                            <div>
                                 <label className="block text-sm text-gray-500 mb-1">Email Address</label>
                                 <div className="flex items-center gap-3 p-3 rounded-lg bg-white/5 border border-white/10 text-white">
                                     <Mail size={18} className="text-gray-400" />
