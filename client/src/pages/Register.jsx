@@ -2,6 +2,7 @@ import { useState, useContext } from "react";
 import AuthContext from "../context/AuthContext";
 import api from "../api/axios";
 import { useNavigate, Link } from "react-router-dom";
+import Footer from "../components/Footer";
 
 const Register = () => {
     const [name, setName] = useState("");
@@ -122,9 +123,8 @@ const Register = () => {
                         </Link>
                     </p>
                 </div>
-                <div className="text-center text-xs text-gray-400">
-                    &copy; 2026 PixLand. All rights reserved.
-                </div>
+                {/* Footer with Branding */}
+                <Footer variant="light" />
             </div>
         </div>
     );

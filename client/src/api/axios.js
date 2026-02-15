@@ -5,8 +5,10 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 const api = axios.create({
     baseURL: API_URL,
+    timeout: 30000, // 30 second timeout for face detection operations
 });
 
+// Request interceptor - add auth token
 api.interceptors.request.use((config) => {
     const user = JSON.parse(localStorage.getItem("user"));
     if (user && user.token) {
@@ -14,5 +16,22 @@ api.interceptors.request.use((config) => {
     }
     return config;
 });
+
+// Response interceptor - handle errors
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error.code === 'ECONNABORTED') {
+            console.error('[API] Request timeout');
+            error.message = 'Request timed out. Please try again.';
+        } else if (!error.response) {
+            console.error('[API] Network error');
+            error.message = 'Network error. Please check your connection.';
+        } else {
+            console.error('[API] Error:', error.response?.status, error.response?.data);
+        }
+        return Promise.reject(error);
+    }
+);
 
 export default api;

@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import api from "../api/axios";
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera, Search, AlertCircle, Image as ImageIcon, Smartphone, QrCode } from "lucide-react";
+import { Camera, Search, AlertCircle, Image as ImageIcon, Smartphone, QrCode, Wifi, WifiOff, CheckCircle } from "lucide-react";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import QRCode from "react-qr-code";
@@ -10,6 +10,7 @@ import { v4 as uuidv4 } from "uuid";
 
 const FaceScan = () => {
     const socket = useSocket();
+    const fileInputRef = useRef(null); // Reference to file input for auto-triggering camera
     const [selfie, setSelfie] = useState(null);
     const [preview, setPreview] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -31,6 +32,7 @@ const FaceScan = () => {
             // MOBILE MODE: We are scanning for a desktop session
             setSessionId(urlSessionId);
             setIsMobileMode(true);
+            console.log("[FaceScan] Mobile mode activated, session:", urlSessionId);
         } else {
             // DESKTOP MODE: Generate a new session and listen for results
             const newSessionId = uuidv4();
@@ -39,12 +41,15 @@ const FaceScan = () => {
             // Construct the mobile URL (ensure it uses the network IP if possible, but window.location is best verification guess)
             const mobileUrl = `${window.location.origin}/face-scan?session=${newSessionId}`;
             setCurrentUrl(mobileUrl);
+            console.log("[FaceScan] Desktop mode, QR URL:", mobileUrl);
 
             // Join the socket room for this session
             if (socket) {
                 socket.emit("join_room", newSessionId);
+                console.log("[FaceScan] Joined socket room:", newSessionId);
 
                 const handleScanComplete = (data) => {
+                    console.log("[FaceScan] Received scan_complete:", data);
                     setResults(data);
                 };
 
@@ -53,6 +58,8 @@ const FaceScan = () => {
                 return () => {
                     socket.off("scan_complete", handleScanComplete);
                 };
+            } else {
+                console.warn("[FaceScan] Socket not available");
             }
         }
 
@@ -61,6 +68,19 @@ const FaceScan = () => {
             setCurrentEvent(JSON.parse(savedEvent));
         }
     }, [socket]); // Re-run if socket connects later
+
+    // Auto-trigger camera on mobile when QR code is scanned
+    useEffect(() => {
+        if (isMobileMode && fileInputRef.current && !selfie) {
+            // Small delay to ensure page is fully loaded
+            const timer = setTimeout(() => {
+                console.log("[FaceScan] Auto-triggering camera for mobile mode");
+                fileInputRef.current?.click();
+            }, 500);
+
+            return () => clearTimeout(timer);
+        }
+    }, [isMobileMode, selfie]);
 
     const handleFileChange = (e) => {
         if (e.target.files && e.target.files[0]) {
@@ -87,13 +107,29 @@ const FaceScan = () => {
 
         setLoading(true);
         setError("");
+        console.log("[FaceScan] Starting face identification...");
+
         try {
             const res = await api.post("/api/face/identify", formData, {
                 headers: { "Content-Type": "multipart/form-data" },
             });
-            setResults(res.data);
+            console.log("[FaceScan] Identification successful:", res.data);
+
+            // Only set results in mobile mode if not using socket sync
+            if (!isMobileMode || !sessionId) {
+                setResults(res.data);
+            } else {
+                // In mobile mode with session, show success message
+                setResults({
+                    message: "✓ Photos sent to desktop!",
+                    images: res.data.images || [],
+                    matchCount: res.data.matchCount || 0
+                });
+            }
         } catch (err) {
-            setError(err.response?.data?.error || "Identification failed. Please try a different photo.");
+            console.error("[FaceScan] Identification error:", err);
+            const errorMessage = err.response?.data?.message || err.response?.data?.error || "Identification failed. Please try a different photo.";
+            setError(errorMessage);
         } finally {
             setLoading(false);
         }
@@ -156,8 +192,10 @@ const FaceScan = () => {
                                         </>
                                     )}
                                     <input
+                                        ref={fileInputRef}
                                         type="file"
                                         accept="image/*"
+                                        capture="user"
                                         className="absolute inset-0 opacity-0 cursor-pointer"
                                         onChange={handleFileChange}
                                     />

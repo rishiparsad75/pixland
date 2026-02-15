@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowRight, ShieldCheck, Zap, Users } from "lucide-react";
 import Button from "../components/ui/Button";
+import Footer from "../components/Footer";
 
 const Home = () => {
     const { user } = useContext(AuthContext);
@@ -133,6 +134,9 @@ const Home = () => {
                     ))}
                 </div>
             </div>
+
+            {/* Footer with Branding */}
+            <Footer variant="dark" />
         </div>
     );
 };

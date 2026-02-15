@@ -3,6 +3,7 @@ import AuthContext from "../context/AuthContext";
 import api from "../api/axios";
 import { useNavigate, Link } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
+import Footer from "../components/Footer";
 
 const Login = () => {
     const [email, setEmail] = useState("");
@@ -110,10 +111,8 @@ const Login = () => {
                     </p>
                 </div>
 
-                {/* Footer/Copyright */}
-                <div className="text-center text-xs text-gray-400">
-                    &copy; 2026 PixLand. All rights reserved.
-                </div>
+                {/* Footer with Branding */}
+                <Footer variant="light" />
             </div>
         </div>
     );
