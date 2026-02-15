@@ -16,7 +16,12 @@ import Profile from "./pages/Profile";
 import FaceScan from "./pages/FaceScan";
 import FaceGroups from "./pages/FaceGroups";
 import Users from "./pages/admin/Users";
+
 import Albums from "./pages/admin/Albums";
+import Photos from "./pages/admin/Photos";
+import Settings from "./pages/admin/Settings";
+import PhotographerSignup from "./pages/PhotographerSignup";
+
 
 const ProtectedRoute = ({ children, role }) => {
   const { user } = useContext(AuthContext);
@@ -42,6 +47,7 @@ function App() {
             <Route path="/" element={<><Navbar /><Home /></>} />
             <Route path="/login" element={<><Navbar /><Login /></>} />
             <Route path="/register" element={<><Navbar /><Register /></>} />
+            <Route path="/photographer-signup" element={<PhotographerSignup />} />
             <Route path="/event/:token" element={<><Navbar /><EventLanding /></>} />
             <Route path="/gallery" element={<ProtectedRoute><Navbar /><Gallery /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><Navbar /><Profile /></ProtectedRoute>} />
@@ -56,6 +62,8 @@ function App() {
               <Route path="users" element={<Users />} />
               <Route path="photographers" element={<Users />} />
               <Route path="albums" element={<Albums />} />
+              <Route path="photos" element={<Photos />} />
+              <Route path="settings" element={<Settings />} />
             </Route>
           </Routes>
         </div>

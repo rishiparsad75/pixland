@@ -28,7 +28,7 @@ const detectFaces = async (imageUrl) => {
 
 const createFaceList = async (faceListId) => {
     try {
-        await client.faceList.create(faceListId, { name: faceListId, recognitionModel: "recognition_04" });
+        await client.faceList.create(faceListId, faceListId, { recognitionModel: "recognition_04" });
     } catch (error) {
         if (error.code !== "FaceListAlreadyExists") throw error;
     }

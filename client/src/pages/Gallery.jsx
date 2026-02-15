@@ -1,27 +1,62 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useContext } from "react";
 import api from "../api/axios";
-import { motion } from "framer-motion";
-import { Search, Filter, MoreHorizontal, User } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Search, Filter, MoreHorizontal, User, FileImage, Scan, AlertCircle } from "lucide-react";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
+import AuthContext from "../context/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 const Gallery = () => {
+    const { user } = useContext(AuthContext);
+    const navigate = useNavigate();
     const [images, setImages] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [showAccessModal, setShowAccessModal] = useState(false);
+    const [hasFaceVerification, setHasFaceVerification] = useState(false);
 
     useEffect(() => {
-        const fetchImages = async () => {
-            try {
-                const res = await api.get("/api/images");
-                setImages(res.data);
-            } catch (error) {
-                console.error("Error fetching images", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchImages();
+        checkFaceVerification();
     }, []);
+
+    const checkFaceVerification = async () => {
+        try {
+            // Super admin and photographer have full access without face verification
+            if (user?.role === 'super-admin' || user?.role === 'photographer') {
+                setHasFaceVerification(true);
+                fetchImages();
+                return;
+            }
+
+            // Check if user has faceEmbedding (has scanned face)
+            const res = await api.get("/api/users/me");
+            const hasFace = res.data.faceEmbedding && res.data.faceEmbedding.length > 0;
+            setHasFaceVerification(hasFace);
+
+            if (hasFace) {
+                fetchImages();
+            } else {
+                setLoading(false);
+                setShowAccessModal(true);
+            }
+        } catch (error) {
+            console.error("Error checking face verification", error);
+            setLoading(false);
+            setShowAccessModal(true);
+        }
+    };
+
+    const fetchImages = async () => {
+        try {
+            // Fetch only images belonging to this user (filtered by user ID on backend)
+            const res = await api.get("/api/images");
+            setImages(res.data);
+        } catch (error) {
+            console.error("Error fetching images", error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const container = {
         hidden: { opacity: 0 },
@@ -45,23 +80,25 @@ const Gallery = () => {
                     <div>
                         <h1 className="text-3xl font-bold text-white mb-2">Photo Gallery</h1>
                         <p className="text-gray-400">
-                            {images.length} photos secured in your vault
+                            {hasFaceVerification ? `${images.length} photos secured in your vault` : "Face verification required"}
                         </p>
                     </div>
 
-                    <div className="flex gap-3">
-                        <div className="relative group">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-white transition-colors" size={18} />
-                            <input
-                                type="text"
-                                placeholder="Search faces..."
-                                className="bg-white/5 border border-white/10 rounded-lg pl-10 pr-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-black/40 transition-all w-64"
-                            />
+                    {hasFaceVerification && (
+                        <div className="flex gap-3">
+                            <div className="relative group">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-white transition-colors" size={18} />
+                                <input
+                                    type="text"
+                                    placeholder="Search faces..."
+                                    className="bg-white/5 border border-white/10 rounded-lg pl-10 pr-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-black/40 transition-all w-64"
+                                />
+                            </div>
+                            <Button variant="outline" size="sm" className="gap-2">
+                                <Filter size={16} /> Filter
+                            </Button>
                         </div>
-                        <Button variant="outline" size="sm" className="gap-2">
-                            <Filter size={16} /> Filter
-                        </Button>
-                    </div>
+                    )}
                 </div>
 
                 {/* Loading State */}
@@ -73,8 +110,8 @@ const Gallery = () => {
                     </div>
                 )}
 
-                {/* Gallery Grid */}
-                {!loading && (
+                {/* Gallery Grid - Only show if face verified */}
+                {!loading && hasFaceVerification && (
                     <motion.div
                         variants={container}
                         initial="hidden"
@@ -89,6 +126,10 @@ const Gallery = () => {
                                             src={img.url}
                                             alt="Uploaded"
                                             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                            onError={(e) => {
+                                                e.target.onerror = null;
+                                                e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="%23111" width="200" height="200"/%3E%3Ctext fill="%23666" font-size="14" x="50%25" y="50%25" text-anchor="middle" dominant-baseline="middle"%3EImage Not Found%3C/text%3E%3C/svg%3E';
+                                            }}
                                         />
 
                                         {/* Overlay on Hover */}
@@ -119,15 +160,61 @@ const Gallery = () => {
                     </motion.div>
                 )}
 
-                {!loading && images.length === 0 && (
+                {!loading && hasFaceVerification && images.length === 0 && (
                     <div className="text-center py-20 bg-white/5 rounded-2xl border border-white/5 border-dashed">
                         <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-500">
                             <FileImage size={32} />
                         </div>
                         <p className="text-gray-400 text-lg mb-6">No photos found in your gallery.</p>
-                        <Button onClick={() => window.location.href = '/upload'}>Upload your first photo</Button>
+                        <p className="text-gray-500 text-sm mb-6">Photos where your face was detected will appear here</p>
                     </div>
                 )}
+
+                {/* Face Verification Required Modal */}
+                <AnimatePresence>
+                    {showAccessModal && !hasFaceVerification && (
+                        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="absolute inset-0 bg-black/90 backdrop-blur-sm"
+                            />
+                            <motion.div
+                                initial={{ scale: 0.9, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                exit={{ scale: 0.9, opacity: 0 }}
+                                className="bg-gradient-to-b from-gray-900 to-black border border-yellow-500/30 w-full max-w-md p-8 rounded-3xl relative z-110 shadow-2xl"
+                            >
+                                <div className="flex flex-col items-center text-center">
+                                    <div className="w-20 h-20 bg-yellow-500/10 rounded-full flex items-center justify-center mb-6">
+                                        <AlertCircle size={40} className="text-yellow-500" />
+                                    </div>
+                                    <h2 className="text-2xl font-bold text-white mb-4">Face Verification Required</h2>
+                                    <p className="text-gray-400 mb-6 leading-relaxed">
+                                        To access your personalized gallery and view photos where you appear, please complete face verification by scanning a QR code at an event.
+                                    </p>
+                                    <div className="w-full space-y-3">
+                                        <Button
+                                            className="w-full gap-2"
+                                            onClick={() => navigate("/face-scan")}
+                                        >
+                                            <Scan size={18} />
+                                            Scan Face at Event
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            className="w-full"
+                                            onClick={() => navigate("/")}
+                                        >
+                                            Go Back Home
+                                        </Button>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        </div>
+                    )}
+                </AnimatePresence>
 
             </div>
         </div>

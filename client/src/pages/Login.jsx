@@ -2,12 +2,12 @@ import { useState, useContext } from "react";
 import AuthContext from "../context/AuthContext";
 import api from "../api/axios";
 import { useNavigate, Link } from "react-router-dom";
+import { Eye, EyeOff } from "lucide-react";
 
 const Login = () => {
     const [email, setEmail] = useState("");
-    // Password field is hidden in the reference image (likely a 2-step flow or just email/OTP), 
-    // but for our current auth flow we need password. I will keep it but style it minimally.
     const [password, setPassword] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
     const { login } = useContext(AuthContext);
     const navigate = useNavigate();
     const [error, setError] = useState("");
@@ -69,14 +69,23 @@ const Login = () => {
                             />
                         </div>
                         <div>
-                            <input
-                                type="password"
-                                placeholder="Password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="w-full px-4 py-3 rounded border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all"
-                                required
-                            />
+                            <div className="relative">
+                                <input
+                                    type={showPassword ? "text" : "password"}
+                                    placeholder="Password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    className="w-full px-4 py-3 rounded border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all pr-10"
+                                    required
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-indigo-600 transition-colors"
+                                >
+                                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                </button>
+                            </div>
                         </div>
 
                         <button
@@ -91,6 +100,12 @@ const Login = () => {
                         Don't have an account?{" "}
                         <Link to="/register" className="text-indigo-600 hover:underline font-medium">
                             Sign up
+                        </Link>
+                    </p>
+                    <p className="mt-2 text-center text-sm text-gray-500">
+                        Are you a photographer?{" "}
+                        <Link to="/photographer-signup" className="text-purple-600 hover:underline font-medium">
+                            Register here
                         </Link>
                     </p>
                 </div>

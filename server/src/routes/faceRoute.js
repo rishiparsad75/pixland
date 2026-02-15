@@ -41,7 +41,7 @@ router.post("/identify", protect, upload.single("selfie"), async (req, res) => {
         }
 
         // 4. Extract persistedFaceIds and query our Database
-        const { eventId } = req.body;
+        const { eventId, sessionId } = req.body; // Added sessionId
         const persistedFaceIds = matches
             .filter(match => match.confidence > 0.6) // Confirmed threshold
             .map(match => match.persistedFaceId);
@@ -64,11 +64,22 @@ router.post("/identify", protect, upload.single("selfie"), async (req, res) => {
 
         const matchedImages = await Image.find(query);
 
-        res.json({
+        const responseData = {
             message: `Found ${matchedImages.length} photos of you!`,
             images: matchedImages,
             matchCount: matchedImages.length
-        });
+        };
+
+        // Emit event if sessionId is present
+        if (sessionId) {
+            const io = req.app.get("io");
+            if (io) {
+                io.to(sessionId).emit("scan_complete", responseData);
+                console.log(`Emitted scan_complete to room ${sessionId}`);
+            }
+        }
+
+        res.json(responseData);
 
     } catch (error) {
         console.error("Identification failed:", error);

@@ -21,6 +21,11 @@ const userSchema = mongoose.Schema(
             enum: ["user", "photographer", "super-admin"],
             default: "user",
         },
+        status: {
+            type: String,
+            enum: ["pending", "active", "rejected"],
+            default: "pending",
+        },
         faceEmbedding: {
             type: [Number],
             select: false,

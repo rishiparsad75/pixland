@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import api from "../../api/axios";
 import Card from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
-import { Plus, Camera, Image as ImageIcon, QrCode, TrendingUp, Calendar, MapPin, MoreVertical } from "lucide-react";
+import { Plus, Camera, Image as ImageIcon, QrCode, TrendingUp, Calendar, MapPin, MoreVertical, Trash2, Upload as UploadIcon } from "lucide-react";
 import QRCode from "react-qr-code";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -12,6 +12,7 @@ const PhotographerDashboard = () => {
     const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [newEvent, setNewEvent] = useState({ name: "", location: "" });
+    const [deleteLoading, setDeleteLoading] = useState(null);
 
     useEffect(() => {
         fetchData();
@@ -41,6 +42,19 @@ const PhotographerDashboard = () => {
             setNewEvent({ name: "", location: "" });
         } catch (error) {
             alert("Error creating event");
+        }
+    };
+
+    const handleDeleteEvent = async (id) => {
+        if (!window.confirm("Are you sure you want to delete this event? All associated photos will also be deleted.")) return;
+        setDeleteLoading(id);
+        try {
+            await api.delete(`/api/events/${id}`);
+            setEvents(events.filter(e => e._id !== id));
+        } catch (error) {
+            alert("Failed to delete event");
+        } finally {
+            setDeleteLoading(null);
         }
     };
 
@@ -109,15 +123,30 @@ const PhotographerDashboard = () => {
                                     <h3 className="text-xl font-bold text-white group-hover:text-indigo-400 transition-colors">
                                         {event.name}
                                     </h3>
-                                    <button className="text-gray-500 hover:text-white"><MoreVertical size={20} /></button>
+                                    <button
+                                        onClick={() => handleDeleteEvent(event._id)}
+                                        disabled={deleteLoading === event._id}
+                                        className="text-gray-500 hover:text-red-500 p-1.5 hover:bg-red-500/10 rounded-lg transition-colors"
+                                    >
+                                        {deleteLoading === event._id ? (
+                                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                        ) : (
+                                            <Trash2 size={18} />
+                                        )}
+                                    </button>
                                 </div>
                                 <div className="flex items-center gap-4 text-sm text-gray-400 mb-4">
                                     <span className="flex items-center gap-1"><MapPin size={14} /> {event.location || "N/A"}</span>
                                     <span className="flex items-center gap-1"><Calendar size={14} /> {new Date(event.createdAt).toLocaleDateString()}</span>
                                 </div>
                                 <div className="flex gap-3 mt-auto">
-                                    <Button size="sm" variant="secondary" className="gap-2 text-[12px] flex-1">
-                                        <Plus size={14} /> Upload Photos
+                                    <Button
+                                        size="sm"
+                                        variant="secondary"
+                                        className="gap-2 text-[12px] flex-1"
+                                        onClick={() => window.location.href = '/photographer/upload'}
+                                    >
+                                        <UploadIcon size={14} /> Upload Photos
                                     </Button>
                                     <Button size="sm" variant="ghost" className="gap-2 text-[12px] flex-1 border border-white/5">
                                         <QrCode size={14} /> Share QR

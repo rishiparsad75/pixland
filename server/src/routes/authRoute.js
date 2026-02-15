@@ -51,6 +51,19 @@ router.post("/login", async (req, res) => {
             const isMatch = await user.matchPassword(password);
             console.log(`Login attempt for ${email}: User found, Password match: ${isMatch}`);
             if (isMatch) {
+                // Check user status
+                if (user.status === 'pending') {
+                    return res.status(403).json({
+                        message: "Your account is pending admin approval. Please wait for verification."
+                    });
+                }
+
+                if (user.status === 'rejected') {
+                    return res.status(403).json({
+                        message: "Your account has been rejected. Please contact support."
+                    });
+                }
+
                 return res.json({
                     _id: user._id,
                     name: user.name,
@@ -78,6 +91,16 @@ router.get("/photographers", protect, superAdmin, async (req, res) => {
     }
 });
 
+// Get current user information
+router.get("/me", protect, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id).select("-password");
+        res.json(user);
+    } catch (error) {
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
 // Super Admin: Create a photographer
 router.post("/photographers", protect, superAdmin, async (req, res) => {
     try {
@@ -94,6 +117,58 @@ router.post("/photographers", protect, superAdmin, async (req, res) => {
         res.status(201).json({ _id: photographer._id, name: photographer.name, email: photographer.email });
     } catch (error) {
         res.status(500).json({ message: "Error creating photographer" });
+    }
+});
+
+// Super Admin: Get all users (including admins/photographers)
+router.get("/users", protect, superAdmin, async (req, res) => {
+    try {
+        const users = await User.find({}).select("-password").sort({ createdAt: -1 });
+        res.json(users);
+    } catch (error) {
+        res.status(500).json({ message: "Error fetching users" });
+    }
+});
+
+// Super Admin: Delete user
+router.delete("/users/:id", protect, superAdmin, async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user) return res.status(404).json({ message: "User not found" });
+        await user.deleteOne();
+        res.json({ message: "User removed" });
+    } catch (error) {
+        res.status(500).json({ message: "Error deleting user" });
+    }
+});
+
+// Super Admin: Approve user
+router.patch("/users/:id/approve", protect, superAdmin, async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        user.status = "active";
+        await user.save();
+
+        res.json({ message: "User approved successfully", user: { _id: user._id, name: user.name, status: user.status } });
+    } catch (error) {
+        res.status(500).json({ message: "Error approving user" });
+    }
+});
+
+// Super Admin: Reject user
+router.patch("/users/:id/reject", protect, superAdmin, async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        user.status = "rejected";
+        await user.save();
+
+        res.json({ message: "User rejected successfully", user: { _id: user._id, name: user.name, status: user.status } });
+    } catch (error) {
+        res.status(500).json({ message: "Error rejecting user" });
     }
 });
 

@@ -5,8 +5,11 @@ import { Camera, Search, AlertCircle, Image as ImageIcon, Smartphone, QrCode } f
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import QRCode from "react-qr-code";
+import { useSocket } from "../context/SocketContext";
+import { v4 as uuidv4 } from "uuid";
 
 const FaceScan = () => {
+    const socket = useSocket();
     const [selfie, setSelfie] = useState(null);
     const [preview, setPreview] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -15,13 +18,49 @@ const FaceScan = () => {
     const [results, setResults] = useState(null);
     const [error, setError] = useState("");
 
+    // Session state
+    const [sessionId, setSessionId] = useState("");
+    const [isMobileMode, setIsMobileMode] = useState(false);
+
     useEffect(() => {
-        setCurrentUrl(window.location.href);
+        // Parse Query Params to check for existing session
+        const searchParams = new URLSearchParams(window.location.search);
+        const urlSessionId = searchParams.get("session");
+
+        if (urlSessionId) {
+            // MOBILE MODE: We are scanning for a desktop session
+            setSessionId(urlSessionId);
+            setIsMobileMode(true);
+        } else {
+            // DESKTOP MODE: Generate a new session and listen for results
+            const newSessionId = uuidv4();
+            setSessionId(newSessionId);
+
+            // Construct the mobile URL (ensure it uses the network IP if possible, but window.location is best verification guess)
+            const mobileUrl = `${window.location.origin}/face-scan?session=${newSessionId}`;
+            setCurrentUrl(mobileUrl);
+
+            // Join the socket room for this session
+            if (socket) {
+                socket.emit("join_room", newSessionId);
+
+                const handleScanComplete = (data) => {
+                    setResults(data);
+                };
+
+                socket.on("scan_complete", handleScanComplete);
+
+                return () => {
+                    socket.off("scan_complete", handleScanComplete);
+                };
+            }
+        }
+
         const savedEvent = sessionStorage.getItem("currentEvent");
         if (savedEvent) {
             setCurrentEvent(JSON.parse(savedEvent));
         }
-    }, []);
+    }, [socket]); // Re-run if socket connects later
 
     const handleFileChange = (e) => {
         if (e.target.files && e.target.files[0]) {
@@ -41,6 +80,9 @@ const FaceScan = () => {
         formData.append("selfie", selfie);
         if (currentEvent) {
             formData.append("eventId", currentEvent._id);
+        }
+        if (isMobileMode && sessionId) {
+            formData.append("sessionId", sessionId);
         }
 
         setLoading(true);
@@ -77,17 +119,19 @@ const FaceScan = () => {
                     transition={{ delay: 0.1 }}
                     className="text-gray-400 text-lg max-w-xl mx-auto"
                 >
-                    Scan your face or upload a selfie to instantly find all your photos matching you.
+                    {isMobileMode
+                        ? "Take a selfie to unlock your photos on the big screen."
+                        : "Scan the QR code with your phone or upload a selfie here."}
                 </motion.p>
             </div>
 
             {!results ? (
                 <div className="w-full max-w-5xl flex flex-col items-center justify-center gap-8 relative z-10">
-                    {/* Mobile Only Scanner */}
+                    {/* Scanner Section - Visible on Mobile OR Desktop if no QR logic needed */}
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="flex-1 w-full md:hidden"
+                        className={`flex-1 w-full max-w-md ${!isMobileMode ? "md:hidden" : ""}`}
                     >
                         <Card className="p-8 border-white/10 bg-white/5 backdrop-blur-xl">
                             <form onSubmit={handleIdentify} className="flex flex-col items-center">
@@ -140,34 +184,36 @@ const FaceScan = () => {
                         </Card>
                     </motion.div>
 
-                    {/* Desktop Only QR Code */}
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: 0.2 }}
-                        className="hidden md:flex flex-col items-center text-center max-w-md w-full"
-                    >
-                        <Card className="p-10 border-white/10 bg-white/5 backdrop-blur-xl flex flex-col items-center shadow-2xl hover:border-indigo-500/30 transition-all duration-300">
-                            <div className="p-4 bg-white rounded-2xl mb-6 shadow-xl w-full aspect-square flex items-center justify-center">
-                                <QRCode
-                                    value={currentUrl}
-                                    size={256}
-                                    style={{ height: "auto", maxWidth: "100%", width: "100%" }}
-                                    viewBox={`0 0 256 256`}
-                                />
-                            </div>
+                    {/* QR Code Section - Only Visible on Desktop when NOT in mobile mode */}
+                    {!isMobileMode && (
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ delay: 0.2 }}
+                            className="hidden md:flex flex-col items-center text-center max-w-md w-full"
+                        >
+                            <Card className="p-10 border-white/10 bg-white/5 backdrop-blur-xl flex flex-col items-center shadow-2xl hover:border-indigo-500/30 transition-all duration-300">
+                                <div className="p-4 bg-white rounded-2xl mb-6 shadow-xl w-full aspect-square flex items-center justify-center">
+                                    <QRCode
+                                        value={currentUrl}
+                                        size={256}
+                                        style={{ height: "auto", maxWidth: "100%", width: "100%" }}
+                                        viewBox={`0 0 256 256`}
+                                    />
+                                </div>
 
-                            <div className="mt-4">
-                                <h3 className="text-2xl font-bold text-white mb-2 flex items-center justify-center gap-3">
-                                    <Smartphone className="text-indigo-400" size={28} />
-                                    Scan with Phone
-                                </h3>
-                                <p className="text-gray-400 text-lg leading-relaxed">
-                                    Capture a selfie securely on your mobile device to access your private gallery.
-                                </p>
-                            </div>
-                        </Card>
-                    </motion.div>
+                                <div className="mt-4">
+                                    <h3 className="text-2xl font-bold text-white mb-2 flex items-center justify-center gap-3">
+                                        <Smartphone className="text-indigo-400" size={28} />
+                                        Scan with Phone
+                                    </h3>
+                                    <p className="text-gray-400 text-lg leading-relaxed">
+                                        Capture a selfie securely on your mobile device to access your private gallery.
+                                    </p>
+                                </div>
+                            </Card>
+                        </motion.div>
+                    )}
                 </div>
             ) : (
                 <motion.div

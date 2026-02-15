@@ -10,14 +10,15 @@ const Register = () => {
     const { login } = useContext(AuthContext);
     const navigate = useNavigate();
     const [error, setError] = useState("");
+    const [success, setSuccess] = useState(false);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError("");
         try {
             const res = await api.post("/api/users/register", { name, email, password });
-            login(res.data);
-            navigate("/");
+            // Don't auto-login, show success message instead
+            setSuccess(true);
         } catch (err) {
             setError(err.response?.data?.message || "Registration failed");
         }
@@ -49,6 +50,24 @@ const Register = () => {
                 <div className="flex-1 flex flex-col justify-center max-w-md mx-auto w-full">
                     <h2 className="text-3xl font-bold text-slate-800 mb-2">Create Account</h2>
                     <p className="text-gray-500 mb-8 text-sm">Start your journey with PixLand today.</p>
+
+                    {success && (
+                        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                            <h3 className="text-green-800 font-semibold mb-2">✓ Registration Successful!</h3>
+                            <p className="text-green-700 text-sm mb-2">
+                                Your account has been created and is pending admin approval.
+                            </p>
+                            <p className="text-green-600 text-xs">
+                                You'll be able to login once an administrator approves your account.
+                            </p>
+                            <Link
+                                to="/login"
+                                className="inline-block mt-3 text-indigo-600 hover:text-indigo-700 font-medium text-sm"
+                            >
+                                Go to Login →
+                            </Link>
+                        </div>
+                    )}
 
                     {error && (
                         <div className="mb-4 p-3 bg-red-50 text-red-500 text-sm rounded border border-red-100">

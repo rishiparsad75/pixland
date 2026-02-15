@@ -25,4 +25,10 @@ async function uploadToBlob(file) {
   return blockBlobClient.url;
 }
 
-module.exports = { uploadToBlob };
+async function deleteFromBlob(blobName) {
+  if (!blobName) return;
+  const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+  await blockBlobClient.deleteIfExists();
+}
+
+module.exports = { uploadToBlob, deleteFromBlob };

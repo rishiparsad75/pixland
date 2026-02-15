@@ -2,7 +2,7 @@ import { useState, useContext } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import AuthContext from "../context/AuthContext";
 import {
-    LayoutDashboard, Users, Image as ImageIcon, LogOut, Menu, X, Settings
+    LayoutDashboard, Users, Image as ImageIcon, LogOut, Menu, X, Settings, Calendar
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -15,7 +15,8 @@ const AdminLayout = () => {
         ? [
             { name: "Global Dashboard", path: "/admin/dashboard", icon: LayoutDashboard },
             { name: "Manage Users", path: "/admin/users", icon: Users },
-            { name: "Event Monitor", path: "/admin/albums", icon: ImageIcon },
+            { name: "Event Monitor", path: "/admin/albums", icon: Calendar },
+            { name: "All Photos", path: "/admin/photos", icon: ImageIcon },
             { name: "Settings", path: "/admin/settings", icon: Settings },
         ]
         : [
@@ -35,11 +36,11 @@ const AdminLayout = () => {
                 <div className="p-6 flex flex-col gap-4 border-b border-white/10 mb-4">
                     <div className="flex items-center justify-between">
                         {sidebarOpen ? (
-                            <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
+                            <Link to="/" className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 hover:opacity-80 transition-opacity">
                                 PixLand Admin
-                            </span>
+                            </Link>
                         ) : (
-                            <span className="text-xl font-bold text-indigo-400">P</span>
+                            <Link to="/" className="text-xl font-bold text-indigo-400">P</Link>
                         )}
                         <button onClick={() => setSidebarOpen(!sidebarOpen)} className="text-gray-400 hover:text-white">
                             {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
@@ -56,6 +57,15 @@ const AdminLayout = () => {
                 </div>
 
                 <nav className="flex-1 px-4 py-6 space-y-2">
+                    {/* Back to Home Button */}
+                    <Link
+                        to="/"
+                        className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-gray-400 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10 mb-6`}
+                    >
+                        <LogOut size={20} className="rotate-180" /> {/* Reusing LogOut icon rotated as 'Back' */}
+                        {sidebarOpen && <span>Back to Home</span>}
+                    </Link>
+
                     {menuItems.map((item) => {
                         const isActive = location.pathname.startsWith(item.path);
                         return (
