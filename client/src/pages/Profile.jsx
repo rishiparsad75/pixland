@@ -37,10 +37,10 @@ const Profile = () => {
                                 <label className="block text-sm text-gray-500 mb-1">Account Type</label>
                                 <div className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-indigo-500/20 to-purple-500/20 border border-indigo-400/30 text-white">
                                     <div className={`px-3 py-1 rounded-full text-sm font-semibold ${user.role === 'photographer'
-                                            ? 'bg-gradient-to-r from-purple-500 to-pink-500'
-                                            : user.role === 'super-admin'
-                                                ? 'bg-gradient-to-r from-red-500 to-orange-500'
-                                                : 'bg-gradient-to-r from-blue-500 to-cyan-500'
+                                        ? 'bg-gradient-to-r from-purple-500 to-pink-500'
+                                        : user.role === 'super-admin'
+                                            ? 'bg-gradient-to-r from-red-500 to-orange-500'
+                                            : 'bg-gradient-to-r from-blue-500 to-cyan-500'
                                         }`}>
                                         {user.role === 'super-admin' ? 'Super Admin' : user.role === 'photographer' ? 'Photographer' : 'User'}
                                     </div>
@@ -62,7 +62,14 @@ const Profile = () => {
                             </div>
                         </div>
 
-                        <div className="mt-8 pt-8 border-t border-white/10 flex justify-end">
+                        <div className="mt-8 pt-8 border-t border-white/10 flex justify-between items-center">
+                            <Button
+                                variant="outline"
+                                onClick={() => window.location.href = '/pricing'}
+                                className="border-indigo-400/30 hover:bg-indigo-500/10"
+                            >
+                                View Subscription
+                            </Button>
                             <Button variant="danger" onClick={logout}>Sign Out</Button>
                         </div>
                     </Card>

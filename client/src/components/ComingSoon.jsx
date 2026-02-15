@@ -12,9 +12,19 @@ const ComingSoon = () => {
     });
 
     useEffect(() => {
-        // Set launch date to 10 days from now
-        const launchDate = new Date();
-        launchDate.setDate(launchDate.getDate() + 10);
+        // Get or set launch date (persistent across refreshes)
+        let launchDate;
+        const storedLaunchDate = localStorage.getItem('faceRecognitionLaunchDate');
+
+        if (storedLaunchDate) {
+            // Use existing launch date
+            launchDate = new Date(storedLaunchDate);
+        } else {
+            // Set new launch date (10 days from now)
+            launchDate = new Date();
+            launchDate.setDate(launchDate.getDate() + 10);
+            localStorage.setItem('faceRecognitionLaunchDate', launchDate.toISOString());
+        }
 
         const timer = setInterval(() => {
             const now = new Date().getTime();
