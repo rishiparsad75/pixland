@@ -145,30 +145,36 @@ router.delete("/:id", protect, superAdmin, async (req, res) => {
 // Super Admin: Approve user
 router.patch("/:id/approve", protect, superAdmin, async (req, res) => {
     try {
-        const user = await User.findById(req.params.id);
+        const user = await User.findByIdAndUpdate(
+            req.params.id,
+            { status: "active" },
+            { new: true, runValidators: true }
+        ).select("-password");
+
         if (!user) return res.status(404).json({ message: "User not found" });
 
-        user.status = "active";
-        await user.save();
-
-        res.json({ message: "User approved successfully", user: { _id: user._id, name: user.name, status: user.status } });
+        res.json({ message: "User approved successfully", user });
     } catch (error) {
-        res.status(500).json({ message: "Error approving user" });
+        console.error("Approve error:", error);
+        res.status(500).json({ message: "Error approving user", error: error.message });
     }
 });
 
 // Super Admin: Reject user
 router.patch("/:id/reject", protect, superAdmin, async (req, res) => {
     try {
-        const user = await User.findById(req.params.id);
+        const user = await User.findByIdAndUpdate(
+            req.params.id,
+            { status: "rejected" },
+            { new: true, runValidators: true }
+        ).select("-password");
+
         if (!user) return res.status(404).json({ message: "User not found" });
 
-        user.status = "rejected";
-        await user.save();
-
-        res.json({ message: "User rejected successfully", user: { _id: user._id, name: user.name, status: user.status } });
+        res.json({ message: "User rejected successfully", user });
     } catch (error) {
-        res.status(500).json({ message: "Error rejecting user" });
+        console.error("Reject error:", error);
+        res.status(500).json({ message: "Error rejecting user", error: error.message });
     }
 });
 
