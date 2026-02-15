@@ -11,16 +11,23 @@ export const SocketProvider = ({ children }) => {
     const [socket, setSocket] = useState(null);
 
     useEffect(() => {
-        // Use window.location.hostname to connect to the server on the same network
-        // Port 5000 is the backend port
-        const serverUrl = `http://${window.location.hostname}:5000`;
-        console.log("[SocketContext] Connecting to:", serverUrl);
+        // Use backend API URL from environment variable
+        // In production, this will be the Azure backend URL
+        // In development, it will be localhost:5000
+        const apiUrl = import.meta.env.VITE_API_URL || `http://localhost:5000`;
 
-        const newSocket = io(serverUrl, {
+        // Remove /api suffix if present and ensure proper protocol
+        const baseUrl = apiUrl.replace('/api', '').replace('http://', 'https://');
+
+        console.log("[SocketContext] Connecting to:", baseUrl);
+
+        const newSocket = io(baseUrl, {
             transports: ['websocket', 'polling'], // Fallback options
             reconnection: true,
             reconnectionDelay: 1000,
-            reconnectionAttempts: 5
+            reconnectionAttempts: 5,
+            secure: true, // Use secure connection in production
+            rejectUnauthorized: false // For development
         });
 
         newSocket.on('connect', () => {
