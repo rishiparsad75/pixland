@@ -121,7 +121,7 @@ router.post("/photographers", protect, superAdmin, async (req, res) => {
 });
 
 // Super Admin: Get all users (including admins/photographers)
-router.get("/users", protect, superAdmin, async (req, res) => {
+router.get("/", protect, superAdmin, async (req, res) => {
     try {
         const users = await User.find({}).select("-password").sort({ createdAt: -1 });
         res.json(users);
@@ -131,7 +131,7 @@ router.get("/users", protect, superAdmin, async (req, res) => {
 });
 
 // Super Admin: Delete user
-router.delete("/users/:id", protect, superAdmin, async (req, res) => {
+router.delete("/:id", protect, superAdmin, async (req, res) => {
     try {
         const user = await User.findById(req.params.id);
         if (!user) return res.status(404).json({ message: "User not found" });
@@ -143,7 +143,7 @@ router.delete("/users/:id", protect, superAdmin, async (req, res) => {
 });
 
 // Super Admin: Approve user
-router.patch("/users/:id/approve", protect, superAdmin, async (req, res) => {
+router.patch("/:id/approve", protect, superAdmin, async (req, res) => {
     try {
         const user = await User.findById(req.params.id);
         if (!user) return res.status(404).json({ message: "User not found" });
@@ -158,7 +158,7 @@ router.patch("/users/:id/approve", protect, superAdmin, async (req, res) => {
 });
 
 // Super Admin: Reject user
-router.patch("/users/:id/reject", protect, superAdmin, async (req, res) => {
+router.patch("/:id/reject", protect, superAdmin, async (req, res) => {
     try {
         const user = await User.findById(req.params.id);
         if (!user) return res.status(404).json({ message: "User not found" });

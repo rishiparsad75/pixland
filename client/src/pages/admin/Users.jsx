@@ -15,7 +15,7 @@ const Users = () => {
     useEffect(() => {
         const fetchUsers = async () => {
             try {
-                const res = await api.get("/api/users/users"); // Helper route in authRoute
+                const res = await api.get("/api/users"); // Helper route in authRoute
                 setUsers(res.data);
             } catch (error) {
                 console.error("Error fetching users:", error);
@@ -31,7 +31,7 @@ const Users = () => {
 
         setDeleteLoading(id);
         try {
-            await api.delete(`/api/users/users/${id}`);
+            await api.delete(`/api/users/${id}`);
             setUsers(users.filter(u => u._id !== id));
         } catch (error) {
             console.error("Error deleting user:", error);
@@ -139,10 +139,10 @@ const Users = () => {
                                         </td>
                                         <td className="px-6 py-4">
                                             <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold tracking-widest ${user.status === 'active'
-                                                    ? 'bg-green-500/10 text-green-400 border border-green-500/20'
-                                                    : user.status === 'pending'
-                                                        ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'
-                                                        : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                                                ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                                                : user.status === 'pending'
+                                                    ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'
+                                                    : 'bg-red-500/10 text-red-400 border border-red-500/20'
                                                 }`}>
                                                 {user.status === 'active' && <CheckCircle size={10} />}
                                                 {user.status === 'pending' && <AlertTriangle size={10} />}
