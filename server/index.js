@@ -16,6 +16,7 @@ const albumRoute = require("./src/routes/albumRoute");
 const faceRoute = require("./src/routes/faceRoute");
 const eventRoute = require("./src/routes/eventRoute");
 const analyticsRoute = require("./src/routes/analyticsRoute");
+const subscriptionRoute = require("./src/routes/subscriptionRoute");
 
 const http = require("http");
 const { Server } = require("socket.io");
@@ -73,6 +74,7 @@ app.use("/api/albums", albumRoute);
 app.use("/api/face", faceRoute);
 app.use("/api/events", eventRoute);
 app.use("/api/analytics", analyticsRoute);
+app.use("/api/subscription", subscriptionRoute);
 
 
 const PORT = process.env.PORT || 5000;

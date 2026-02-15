@@ -23,6 +23,7 @@ const Navbar = () => {
         ...(user?.role === 'photographer' || user?.role === 'super-admin' ? [{ name: "Upload", path: "/photographer/upload", icon: UploadIcon }] : []),
         { name: "Find My Photos", path: "/face-scan", icon: Camera },
         { name: "Gallery", path: "/gallery", icon: ImageIcon },
+        { name: "Pricing", path: "/pricing", icon: Users },
         ...(user?.role === 'user' ? [{ name: "My Collections", path: "/gallery", icon: FolderHeart }] : []),
     ];
 

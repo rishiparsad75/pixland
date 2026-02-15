@@ -33,6 +33,44 @@ const userSchema = mongoose.Schema(
         assignedPhotographer: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
+        },
+        subscription: {
+            plan: {
+                type: String,
+                enum: ['free', 'premium'],
+                default: 'free'
+            },
+            startDate: {
+                type: Date,
+                default: Date.now
+            },
+            endDate: Date,
+            status: {
+                type: String,
+                enum: ['active', 'trial', 'expired', 'cancelled'],
+                default: 'active'
+            },
+            trialEndsAt: Date,
+            isOnTrial: {
+                type: Boolean,
+                default: false
+            }
+        },
+        usage: {
+            downloads: {
+                count: { type: Number, default: 0 },
+                lastReset: { type: Date, default: Date.now },
+                monthlyLimit: { type: Number, default: 10 } // Free tier limit
+            },
+            uploads: {
+                count: { type: Number, default: 0 },
+                lastReset: { type: Date, default: Date.now },
+                monthlyLimit: { type: Number, default: 500 } // Free tier limit for photographers
+            }
+        },
+        notifications: {
+            emailOnLimitWarning: { type: Boolean, default: true },
+            lastWarningEmailSent: Date
         }
     },
     {

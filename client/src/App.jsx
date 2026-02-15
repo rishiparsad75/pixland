@@ -16,6 +16,7 @@ import Profile from "./pages/Profile";
 import FaceScan from "./pages/FaceScan";
 import FaceGroups from "./pages/FaceGroups";
 import Users from "./pages/admin/Users";
+import Pricing from "./pages/Pricing";
 
 import Albums from "./pages/admin/Albums";
 import Photos from "./pages/admin/Photos";
@@ -51,6 +52,7 @@ function App() {
             <Route path="/event/:token" element={<><Navbar /><EventLanding /></>} />
             <Route path="/gallery" element={<ProtectedRoute><Navbar /><Gallery /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><Navbar /><Profile /></ProtectedRoute>} />
+            <Route path="/pricing" element={<ProtectedRoute><Navbar /><Pricing /></ProtectedRoute>} />
             <Route path="/face-scan" element={<ProtectedRoute><Navbar /><FaceScan /></ProtectedRoute>} />
             <Route path="/face-groups" element={<ProtectedRoute><Navbar /><FaceGroups /></ProtectedRoute>} />
             <Route path="/photographer" element={<ProtectedRoute role={["photographer", "super-admin"]}><AdminLayout /></ProtectedRoute>}>
