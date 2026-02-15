@@ -25,7 +25,9 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: "*", // Allow all origins for development, restrict in production
+    origin: process.env.NODE_ENV === 'production'
+      ? process.env.FRONTEND_URL || "https://your-frontend.azurestaticapps.net"
+      : "*", // Allow all origins in development only
     methods: ["GET", "POST"]
   }
 });
@@ -46,7 +48,14 @@ io.on("connection", (socket) => {
   });
 });
 
-app.use(cors());
+// CORS configuration for Express
+const corsOptions = {
+  origin: process.env.NODE_ENV === 'production'
+    ? process.env.FRONTEND_URL || "https://your-frontend.azurestaticapps.net"
+    : "*", // Allow all in development
+  credentials: true
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 
 app.get("/", (req, res) => {
