@@ -1,0 +1,21 @@
+{
+    "name": "pixland",
+    "version": "1.0.0",
+    "description": "PixLand - Face Recognition Event Photo Platform",
+    "scripts": {
+        "start": "cd server && npm install && node index.js",
+        "server": "cd server && npm run dev",
+        "client": "cd client && npm run dev",
+        "install-all": "cd server && npm install && cd ../client && npm install"
+    },
+    "engines": {
+        "node": "18.x"
+    },
+    "keywords": [
+        "face-recognition",
+        "azure",
+        "event-photos"
+    ],
+    "author": "Rishi Parsad",
+    "license": "ISC"
+}
