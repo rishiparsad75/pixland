@@ -1,13 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { motion } from 'framer-motion';
 import { Check, Sparkles, Zap, Crown, Users, Upload, Download } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import api from '../api/axios';
-import { useAuth } from '../context/AuthContext';
+import AuthContext from '../context/AuthContext';
 
 const Pricing = () => {
-    const { user } = useAuth();
+    const { user } = useContext(AuthContext);
     const [subscription, setSubscription] = useState(null);
     const [loading, setLoading] = useState(true);
     const [upgrading, setUpgrading] = useState(false);
