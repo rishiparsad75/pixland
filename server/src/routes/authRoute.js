@@ -26,8 +26,9 @@ router.post("/register", async (req, res) => {
             return res.status(400).json({ message: "OTP not found or expired" });
         }
 
-        // Logic to verify OTP code (we'll implement verifyRegistrationOTP helper or just check raw if not using Infobip for email)
-        if (otpRecord.pinId !== otp) { // Reusing pinId field for manual OTP if not using Infobip for email
+        // Logic to verify OTP code
+        console.log(`[Verification] Checking OTP for ${email}: Received ${otp}, Expected ${otpRecord.pinId}`);
+        if (otpRecord.pinId.toString().trim() !== otp.toString().trim()) {
             return res.status(400).json({ message: "Invalid OTP code" });
         }
 
@@ -71,7 +72,8 @@ router.post("/photographer-register", async (req, res) => {
             return res.status(400).json({ message: "OTP not found or expired" });
         }
 
-        if (otpRecord.pinId !== otp) {
+        console.log(`[Verification] Checking Photographer OTP for ${email}: Received ${otp}, Expected ${otpRecord.pinId}`);
+        if (otpRecord.pinId.toString().trim() !== otp.toString().trim()) {
             return res.status(400).json({ message: "Invalid OTP code" });
         }
 
