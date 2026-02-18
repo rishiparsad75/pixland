@@ -16,8 +16,9 @@ export const SocketProvider = ({ children }) => {
         // In development, it will be localhost:5000
         const apiUrl = import.meta.env.VITE_API_URL || `http://localhost:5000`;
 
-        // Remove /api suffix if present and ensure proper protocol
-        const baseUrl = apiUrl.replace('/api', '').replace('http://', 'https://');
+        // Remove /api suffix if present
+        const baseUrl = apiUrl.replace('/api', '');
+        const isSecure = baseUrl.startsWith('https://');
 
         console.log("[SocketContext] Connecting to:", baseUrl);
 
@@ -26,7 +27,7 @@ export const SocketProvider = ({ children }) => {
             reconnection: true,
             reconnectionDelay: 1000,
             reconnectionAttempts: 5,
-            secure: true, // Use secure connection in production
+            secure: isSecure, // Use secure connection based on protocol
             rejectUnauthorized: false // For development
         });
 

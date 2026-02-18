@@ -8,20 +8,71 @@ import Footer from "../components/Footer";
 const Login = () => {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [mobile, setMobile] = useState("");
+    const [otp, setOtp] = useState("");
+    const [loginMethod, setLoginMethod] = useState("email"); // 'email' or 'mobile'
+    const [step, setStep] = useState(1); // 1 for mobile entry, 2 for OTP entry
     const [showPassword, setShowPassword] = useState(false);
     const { login } = useContext(AuthContext);
     const navigate = useNavigate();
     const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError("");
+        setLoading(true);
         try {
             const res = await api.post("/api/users/login", { email, password });
             login(res.data);
+
             navigate("/");
         } catch (err) {
             setError(err.response?.data?.message || "Login failed");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSendOtp = async (e) => {
+        e.preventDefault();
+        setError("");
+        setLoading(true);
+        try {
+            // Validate mobile format (simple check)
+            if (!mobile.startsWith("+")) {
+                setError("Please include country code (e.g., +91)");
+                setLoading(false);
+                return;
+            }
+            await api.post("/api/users/send-otp", { mobile });
+            setStep(2);
+
+        } catch (err) {
+            setError(err.response?.data?.message || "Failed to send OTP");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleVerifyOtp = async (e) => {
+        e.preventDefault();
+        setError("");
+        setLoading(true);
+        try {
+            const res = await api.post("/api/users/verify-otp", { mobile, otp });
+            if (res.data.newUser) {
+
+                // Redirect to a complete profile page or handle new user
+                navigate("/register", { state: { mobile } });
+            } else {
+                login(res.data);
+                navigate("/");
+            }
+        } catch (err) {
+            setError(err.response?.data?.message || "Invalid OTP");
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -34,10 +85,6 @@ const Login = () => {
                     alt="Photographer"
                     className="absolute inset-0 w-full h-full object-cover opacity-60"
                 />
-
-                {/* Logo overlay on image (optional, depends on specific design choice, usually logo is on white side) */}
-
-
             </div>
 
             {/* Right Side - Login Form */}
@@ -50,26 +97,19 @@ const Login = () => {
 
                 <div className="flex-1 flex flex-col justify-center max-w-md mx-auto w-full">
                     <h2 className="text-3xl font-bold text-slate-800 mb-2">Sign in to PixLand</h2>
-                    <p className="text-gray-500 mb-8 text-sm">Enter your Email ID and Password to continue</p>
+                    <p className="text-gray-500 mb-8 text-sm">Choose your preferred login method</p>
 
-                    {error && (
-                        <div className="mb-4 p-3 bg-red-50 text-red-500 text-sm rounded border border-red-100">
-                            {error}
-                        </div>
-                    )}
-
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        <div>
+                    <div className="space-y-6">
+                        {/* Email Login Section */}
+                        <form onSubmit={handleSubmit} className="space-y-4">
                             <input
                                 type="email"
-                                placeholder="Email/Phone Number"
+                                placeholder="Email Address"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 className="w-full px-4 py-3 rounded border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all"
                                 required
                             />
-                        </div>
-                        <div>
                             <div className="relative">
                                 <input
                                     type={showPassword ? "text" : "password"}
@@ -87,17 +127,20 @@ const Login = () => {
                                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                                 </button>
                             </div>
-                        </div>
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 rounded transition-colors duration-200 shadow-lg shadow-indigo-600/20 disabled:opacity-50"
+                            >
+                                {loading ? "Logging in..." : "Login"}
+                            </button>
+                        </form>
+                    </div>
 
-                        <button
-                            type="submit"
-                            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 rounded transition-colors duration-200 shadow-lg shadow-indigo-600/20"
-                        >
-                            Continue
-                        </button>
-                    </form>
+
 
                     <p className="mt-8 text-center text-sm text-gray-500">
+
                         Don't have an account?{" "}
                         <Link to="/register" className="text-indigo-600 hover:underline font-medium">
                             Sign up

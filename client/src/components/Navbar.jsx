@@ -23,7 +23,7 @@ const Navbar = () => {
         ...(user?.role === 'photographer' || user?.role === 'super-admin' ? [{ name: "Upload", path: "/photographer/upload", icon: UploadIcon }] : []),
         { name: "Find My Photos", path: "/face-scan", icon: Camera },
         { name: "Gallery", path: "/gallery", icon: ImageIcon },
-        { name: "Pricing", path: "/pricing", icon: Users },
+        ...(user?.role !== 'super-admin' ? [{ name: "Pricing", path: "/pricing", icon: Users }] : []),
         ...(user?.role === 'user' ? [{ name: "My Collections", path: "/gallery", icon: FolderHeart }] : []),
     ];
 
@@ -66,21 +66,21 @@ const Navbar = () => {
                             <div className="flex items-center gap-4">
                                 {user.role === 'super-admin' && (
                                     <Link to="/admin/dashboard">
-                                        <Button variant="secondary" size="sm" className="hidden lg:flex gap-2 border-indigo-500/30 text-indigo-400">
+                                        <Button variant="ghost" size="sm" className="hidden lg:flex gap-2 text-indigo-400 hover:bg-indigo-500/10">
                                             <LayoutDashboard size={14} />
-                                            Admin Panel
+                                            Admin
                                         </Button>
                                     </Link>
                                 )}
                                 {user.role === 'photographer' && (
                                     <Link to="/photographer/dashboard">
-                                        <Button variant="secondary" size="sm" className="hidden lg:flex gap-2 border-indigo-500/30 text-indigo-400">
+                                        <Button variant="ghost" size="sm" className="hidden lg:flex gap-2 text-indigo-400 hover:bg-indigo-500/10">
                                             <LayoutDashboard size={14} />
-                                            Photographer Hub
+                                            Hub
                                         </Button>
                                     </Link>
                                 )}
-                                <Link to="/profile" className="flex items-center gap-2 group">
+                                <Link to="/profile" className="flex items-center gap-2 group pl-2 border-l border-white/10">
                                     <div className="relative">
                                         <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-gray-700 to-gray-600 flex items-center justify-center border border-white/10 group-hover:border-indigo-500 transition-colors">
                                             <User size={14} className="text-white" />
@@ -94,18 +94,29 @@ const Navbar = () => {
                                         <span className="text-[10px] text-gray-500 uppercase tracking-wider">{user.role}</span>
                                     </div>
                                 </Link>
-                                <Button variant="ghost" size="sm" onClick={logout} className="text-red-400 hover:text-red-300 hover:bg-red-500/10">
+                                <Button variant="ghost" size="sm" onClick={logout} className="text-white/40 hover:text-red-400 hover:bg-red-500/10 ml-1">
                                     <LogOut size={16} />
                                 </Button>
                             </div>
                         </>
                     ) : (
-                        <div className="flex gap-4">
+
+                        <div className="flex gap-2 bg-white/5 p-1 rounded-xl border border-white/10">
                             <Link to="/login">
-                                <Button variant="ghost">Sign In</Button>
+                                <Button
+                                    variant={location.pathname === "/login" ? "primary" : "ghost"}
+                                    className={location.pathname === "/login" ? "shadow-indigo-500/20" : "text-gray-400 hover:text-white"}
+                                >
+                                    Sign In
+                                </Button>
                             </Link>
                             <Link to="/register">
-                                <Button variant="primary">Get Started</Button>
+                                <Button
+                                    variant={location.pathname === "/register" ? "primary" : "ghost"}
+                                    className={location.pathname === "/register" ? "shadow-indigo-500/20" : "text-gray-400 hover:text-white"}
+                                >
+                                    Get Started
+                                </Button>
                             </Link>
                         </div>
                     )}
@@ -152,6 +163,27 @@ const Navbar = () => {
                                             {link.name}
                                         </Link>
                                     ))}
+                                    {user.role === 'super-admin' && (
+                                        <Link
+                                            to="/admin/dashboard"
+                                            onClick={() => setMobileMenuOpen(false)}
+                                            className="flex items-center gap-3 text-indigo-400 hover:text-indigo-300 py-2"
+                                        >
+                                            <LayoutDashboard size={18} />
+                                            Admin Panel
+                                        </Link>
+                                    )}
+                                    {user.role === 'photographer' && (
+                                        <Link
+                                            to="/photographer/dashboard"
+                                            onClick={() => setMobileMenuOpen(false)}
+                                            className="flex items-center gap-3 text-indigo-400 hover:text-indigo-300 py-2"
+                                        >
+                                            <LayoutDashboard size={18} />
+                                            Photographer Hub
+                                        </Link>
+                                    )}
+
                                     <button onClick={logout} className="flex items-center gap-3 text-red-400 py-2 mt-2">
                                         <LogOut size={18} />
                                         Sign Out

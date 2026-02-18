@@ -26,6 +26,15 @@ const userSchema = mongoose.Schema(
             enum: ["pending", "active", "rejected"],
             default: "pending",
         },
+        mobile: {
+            type: String,
+            required: true,
+            unique: true,
+        },
+
+        cameraModel: {
+            type: String,
+        },
         faceEmbedding: {
             type: [Number],
             select: false,

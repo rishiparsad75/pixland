@@ -13,6 +13,8 @@ const PhotographerSignup = () => {
         password: "",
         confirmPassword: ""
     });
+    const [otp, setOtp] = useState("");
+    const [step, setStep] = useState(1); // 1: Details, 2: OTP
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [error, setError] = useState("");
@@ -23,7 +25,7 @@ const PhotographerSignup = () => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    const handleSubmit = async (e) => {
+    const handleSendOtp = async (e) => {
         e.preventDefault();
         setError("");
 
@@ -38,19 +40,37 @@ const PhotographerSignup = () => {
             return;
         }
 
-        if (!formData.mobile.match(/^\d{10}$/)) {
-            setError("Please enter a valid 10-digit mobile number");
+        if (!formData.mobile.match(/^\+?\d{10,15}$/)) {
+            setError("Please enter a valid mobile number with country code");
             return;
         }
 
         setLoading(true);
         try {
-            const res = await api.post("/api/users/photographer-register", {
+            await api.post("/api/users/send-registration-otp", {
+                email: formData.email,
+                mobile: formData.mobile
+            });
+            setStep(2);
+        } catch (err) {
+            setError(err.response?.data?.message || "Failed to send verification code");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError("");
+        setLoading(true);
+        try {
+            await api.post("/api/users/photographer-register", {
                 name: `${formData.firstName} ${formData.lastName}`,
                 email: formData.email,
                 password: formData.password,
                 mobile: formData.mobile,
-                cameraModel: formData.cameraModel
+                cameraModel: formData.cameraModel,
+                otp: otp
             });
 
             alert("Registration successful! Please wait for admin approval.");
@@ -71,43 +91,21 @@ const PhotographerSignup = () => {
                     <Camera size={64} className="mb-6" />
                     <h1 className="text-5xl font-bold mb-4">Join PixLand</h1>
                     <p className="text-xl text-white/90 mb-8">
-                        Become a professional photographer on our platform and showcase your work to thousands of users.
+                        Become a professional photographer on our platform.
                     </p>
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">✓</div>
-                            <div>
-                                <h3 className="font-semibold">Unlimited Uploads</h3>
-                                <p className="text-sm text-white/80">Upload photos from all your events</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">✓</div>
-                            <div>
-                                <h3 className="font-semibold">Event Management</h3>
-                                <p className="text-sm text-white/80">Create and manage multiple events</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">✓</div>
-                            <div>
-                                <h3 className="font-semibold">Analytics Dashboard</h3>
-                                <p className="text-sm text-white/80">Track your performance and engagement</p>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
 
             {/* Right Side - Signup Form */}
             <div className="flex-1 flex items-center justify-center p-8 bg-black">
                 <div className="w-full max-w-md">
-                    <div className="mb-8">
+                    <div className="mb-8 text-center md:text-left">
                         <Link to="/" className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
                             PixLand
                         </Link>
-                        <h2 className="text-3xl font-bold text-white mt-6 mb-2">Photographer Registration</h2>
-                        <p className="text-gray-400">Create your professional account</p>
+                        <h2 className="text-3xl font-bold text-white mt-6 mb-2">
+                            {step === 1 ? "Photographer Registration" : "Verify Your Email"}
+                        </h2>
                     </div>
 
                     {error && (
@@ -116,176 +114,103 @@ const PhotographerSignup = () => {
                         </div>
                     )}
 
-                    <form onSubmit={handleSubmit} className="space-y-5">
-                        {/* Name Fields */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-2">
-                                    First Name *
-                                </label>
-                                <div className="relative">
-                                    <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
-                                    <input
-                                        type="text"
-                                        name="firstName"
-                                        required
-                                        value={formData.firstName}
-                                        onChange={handleChange}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-colors"
-                                        placeholder="John"
-                                    />
+                    <form onSubmit={step === 1 ? handleSendOtp : handleSubmit} className="space-y-5">
+                        {step === 1 ? (
+                            <>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <input
+                                            type="text"
+                                            name="firstName"
+                                            required
+                                            value={formData.firstName}
+                                            onChange={handleChange}
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-indigo-500"
+                                            placeholder="First Name"
+                                        />
+                                    </div>
+                                    <div>
+                                        <input
+                                            type="text"
+                                            name="lastName"
+                                            required
+                                            value={formData.lastName}
+                                            onChange={handleChange}
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-indigo-500"
+                                            placeholder="Last Name"
+                                        />
+                                    </div>
                                 </div>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-2">
-                                    Last Name *
-                                </label>
-                                <div className="relative">
-                                    <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
-                                    <input
-                                        type="text"
-                                        name="lastName"
-                                        required
-                                        value={formData.lastName}
-                                        onChange={handleChange}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-colors"
-                                        placeholder="Doe"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Email */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-2">
-                                Email Address *
-                            </label>
-                            <div className="relative">
-                                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
                                 <input
                                     type="email"
                                     name="email"
                                     required
                                     value={formData.email}
                                     onChange={handleChange}
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-colors"
-                                    placeholder="photographer@example.com"
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-indigo-500"
+                                    placeholder="Email Address"
                                 />
-                            </div>
-                        </div>
-
-                        {/* Mobile */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-2">
-                                Mobile Number *
-                            </label>
-                            <div className="relative">
-                                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
                                 <input
                                     type="tel"
                                     name="mobile"
                                     required
                                     value={formData.mobile}
                                     onChange={handleChange}
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-colors"
-                                    placeholder="9876543210"
-                                    maxLength="10"
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-indigo-500"
+                                    placeholder="Mobile (+91...)"
                                 />
-                            </div>
-                        </div>
-
-                        {/* Camera Model */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-2">
-                                Camera Model *
-                            </label>
-                            <div className="relative">
-                                <Camera className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
                                 <input
                                     type="text"
                                     name="cameraModel"
                                     required
                                     value={formData.cameraModel}
                                     onChange={handleChange}
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-colors"
-                                    placeholder="Canon EOS R5, Sony A7 III, etc."
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-indigo-500"
+                                    placeholder="Camera Model"
                                 />
-                            </div>
-                        </div>
-
-                        {/* Password */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-2">
-                                Password *
-                            </label>
-                            <div className="relative">
                                 <input
                                     type={showPassword ? "text" : "password"}
                                     name="password"
                                     required
                                     value={formData.password}
                                     onChange={handleChange}
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-colors pr-10"
-                                    placeholder="Min. 6 characters"
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-indigo-500"
+                                    placeholder="Password"
                                 />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
-                                >
-                                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Confirm Password */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-2">
-                                Confirm Password *
-                            </label>
-                            <div className="relative">
                                 <input
                                     type={showConfirmPassword ? "text" : "password"}
                                     name="confirmPassword"
                                     required
                                     value={formData.confirmPassword}
                                     onChange={handleChange}
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-colors pr-10"
-                                    placeholder="Re-enter password"
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-indigo-500"
+                                    placeholder="Confirm Password"
                                 />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
-                                >
-                                    {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                                </button>
+                            </>
+                        ) : (
+                            <div className="space-y-4">
+                                <p className="text-gray-400 text-sm">We've sent a 6-digit code to {formData.email}.</p>
+                                <input
+                                    type="text"
+                                    placeholder="6-digit OTP"
+                                    value={otp}
+                                    onChange={(e) => setOtp(e.target.value)}
+                                    maxLength="6"
+                                    className="w-full bg-white/5 border border-indigo-500 rounded-xl py-4 text-center text-3xl font-bold tracking-widest text-white"
+                                    required
+                                />
+                                <button type="button" onClick={() => setStep(1)} className="text-xs text-indigo-400 hover:underline">Edit details</button>
                             </div>
-                        </div>
+                        )}
 
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold py-3 rounded-xl transition-all disabled:opacity-50"
                         >
-                            {loading ? "Creating Account..." : "Create Photographer Account"}
+                            {loading ? "Processing..." : (step === 1 ? "Send Verification Code" : "Complete Registration")}
                         </button>
                     </form>
-
-                    <div className="mt-6 text-center">
-                        <p className="text-gray-400">
-                            Already have an account?{" "}
-                            <Link to="/login" className="text-indigo-400 hover:text-indigo-300 font-medium">
-                                Sign in
-                            </Link>
-                        </p>
-                        <p className="text-gray-500 text-sm mt-2">
-                            Regular user?{" "}
-                            <Link to="/signup" className="text-purple-400 hover:text-purple-300">
-                                Sign up here
-                            </Link>
-                        </p>
-                    </div>
                 </div>
             </div>
         </div>
