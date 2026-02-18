@@ -307,68 +307,124 @@ const Pricing = () => {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+                            className="absolute inset-0 bg-black/60 backdrop-blur-md"
                             onClick={() => setShowPaymentModal(false)}
                         />
                         <motion.div
-                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            initial={{ opacity: 0, scale: 0.9, y: 30 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                            className="relative w-full max-w-lg bg-slate-900 border border-white/10 rounded-3xl p-8 shadow-2xl overflow-hidden"
+                            exit={{ opacity: 0, scale: 0.9, y: 30 }}
+                            className="relative w-full max-w-xl bg-slate-900/90 border border-white/10 rounded-[2.5rem] p-10 shadow-3xl overflow-hidden backdrop-blur-2xl"
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <div className="flex justify-between items-center mb-6">
-                                <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                                    <Sparkles className="text-purple-400" /> Complete Payment
-                                </h2>
-                                <button onClick={() => setShowPaymentModal(false)} className="text-gray-400 hover:text-white">
-                                    <X size={24} />
-                                </button>
-                            </div>
+                            {/* Decorative Blur */}
+                            <div className="absolute -top-24 -right-24 w-48 h-48 bg-purple-500/20 blur-3xl rounded-full" />
+                            <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-pink-500/20 blur-3xl rounded-full" />
 
-                            <div className="space-y-6 text-center">
-                                {/* QR Code Placeholder */}
-                                <div className="bg-white p-4 rounded-2xl mx-auto w-48 h-48 flex items-center justify-center shadow-inner">
-                                    <img
-                                        src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=upi://pay?pa=rishiparsad75@okicici%26pn=RISHI%20PARSAD%26am=999%26cu=INR"
-                                        alt="UPI QR Code"
-                                        className="w-full h-full"
-                                    />
-                                </div>
-                                <p className="text-purple-200 text-sm font-medium">Scan to pay: <span className="text-white font-bold">₹{isPhotographer ? '999' : '499'}</span></p>
-
-                                <form onSubmit={handleSubmitRequest} className="space-y-4 text-left">
+                            <div className="relative z-10">
+                                <div className="flex justify-between items-center mb-8">
                                     <div>
-                                        <label className="block text-xs font-semibold text-gray-400 uppercase mb-1">Transaction UTR Number</label>
-                                        <input
-                                            type="text"
-                                            placeholder="12 digit UTR Number"
-                                            value={utr}
-                                            onChange={(e) => setUtr(e.target.value)}
-                                            className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                            required
-                                        />
+                                        <h2 className="text-3xl font-bold text-white mb-1">Go Premium</h2>
+                                        <p className="text-purple-300/80 text-sm">Follow the steps below to activate your plan</p>
+                                    </div>
+                                    <button
+                                        onClick={() => setShowPaymentModal(false)}
+                                        className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors text-gray-400 hover:text-white"
+                                    >
+                                        <X size={24} />
+                                    </button>
+                                </div>
+
+                                <div className="grid md:grid-cols-2 gap-8 mb-8">
+                                    {/* Left: QR Section */}
+                                    <div className="space-y-4">
+                                        <div className="relative group">
+                                            <div className="absolute -inset-1 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
+                                            <div className="relative bg-white p-3 rounded-2xl shadow-2xl flex items-center justify-center overflow-hidden">
+                                                <img
+                                                    src="/payment_qr.jpg"
+                                                    alt="UPI QR Code"
+                                                    className="w-full aspect-square object-contain rounded-lg"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="text-center">
+                                            <p className="text-xs text-gray-400 uppercase tracking-widest font-bold mb-1">Scan & Pay</p>
+                                            <p className="text-xl font-bold text-white">₹{isPhotographer ? '999' : '499'}</p>
+                                        </div>
                                     </div>
 
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-400 uppercase mb-1">Payment Screenshot Proof</label>
+                                    {/* Right: Info/Upload */}
+                                    <div className="flex flex-col justify-center space-y-4">
+                                        <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                                            <p className="text-xs text-gray-400 mb-2 uppercase font-bold tracking-tight">Payment Details</p>
+                                            <div className="space-y-2">
+                                                <div className="flex justify-between text-sm">
+                                                    <span className="text-gray-400">Merchant</span>
+                                                    <span className="text-white font-medium">PixLand AI</span>
+                                                </div>
+                                                <div className="flex justify-between text-sm">
+                                                    <span className="text-gray-400">Plan</span>
+                                                    <span className="text-white font-medium">Premium (30 Days)</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <p className="text-xs text-purple-300 leading-relaxed">
+                                            <Info size={12} className="inline mr-1" />
+                                            Please ensure the UTR number matches the screenshot for faster verification.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <form onSubmit={handleSubmitRequest} className="space-y-6">
+                                    <div className="space-y-4">
                                         <div className="relative">
+                                            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 block ml-1">UTR Number</label>
+                                            <input
+                                                type="text"
+                                                placeholder="Enter 12-digit UTR No. (e.g. 1234...)"
+                                                value={utr}
+                                                onChange={(e) => setUtr(e.target.value)}
+                                                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                                                required
+                                            />
+                                        </div>
+
+                                        <div className="relative">
+                                            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 block ml-1">Proof of Payment</label>
                                             <input
                                                 type="file"
                                                 accept="image/*"
                                                 onChange={handleFileChange}
                                                 className="hidden"
-                                                id="screenshot-upload"
+                                                id="payment-upload"
                                                 required
                                             />
                                             <label
-                                                htmlFor="screenshot-upload"
-                                                className="flex items-center justify-center gap-2 w-full bg-purple-600/20 border-2 border-dashed border-purple-500/30 rounded-xl px-4 py-6 text-purple-200 cursor-pointer hover:bg-purple-600/30 transition-all overflow-hidden"
+                                                htmlFor="payment-upload"
+                                                className={`group relative flex flex-col items-center justify-center gap-3 w-full min-h-[140px] border-2 border-dashed rounded-3xl cursor-pointer transition-all overflow-hidden
+                                                    ${screenshotPreview
+                                                        ? 'border-purple-500/50 bg-purple-500/5'
+                                                        : 'border-white/10 bg-white/5 hover:border-purple-500/30 hover:bg-white/[0.07]'
+                                                    }`}
                                             >
                                                 {screenshotPreview ? (
-                                                    <img src={screenshotPreview} alt="Preview" className="h-full w-full object-contain max-h-32" />
+                                                    <div className="relative w-full h-full p-2 flex items-center justify-center">
+                                                        <img src={screenshotPreview} alt="Preview" className="max-h-32 rounded-xl object-contain shadow-2xl" />
+                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded-xl font-bold text-sm text-white backdrop-blur-sm">
+                                                            Change File
+                                                        </div>
+                                                    </div>
                                                 ) : (
-                                                    <><Camera size={20} /> Upload Screenshot</>
+                                                    <>
+                                                        <div className="p-3 bg-purple-500/10 rounded-2xl text-purple-400">
+                                                            <Upload size={24} />
+                                                        </div>
+                                                        <div className="text-center">
+                                                            <span className="block text-sm font-bold text-white">Drop screenshot here</span>
+                                                            <span className="text-xs text-gray-400">PNG, JPG or PDF up to 5MB</span>
+                                                        </div>
+                                                    </>
                                                 )}
                                             </label>
                                         </div>
@@ -377,9 +433,14 @@ const Pricing = () => {
                                     <Button
                                         type="submit"
                                         disabled={upgrading}
-                                        className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-lg font-bold py-4 hover:shadow-purple-500/30 transition-all"
+                                        className="w-full py-5 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-lg font-bold shadow-2xl shadow-purple-500/20 transform transition-all active:scale-[0.98] disabled:opacity-50"
                                     >
-                                        {upgrading ? 'Uploading Proof...' : 'Submit Payment Proof'}
+                                        {upgrading ? (
+                                            <span className="flex items-center justify-center gap-2">
+                                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                Processing...
+                                            </span>
+                                        ) : 'Submit Verification Request'}
                                     </Button>
                                 </form>
                             </div>
