@@ -25,7 +25,7 @@ const sendEmailOTP = async (to, otp) => {
             plainText: `Welcome to Pixland! Your verification code is: ${otp}. This code is valid for 5 minutes.`,
             html: `
                 <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-                    <h2 style="color: #4f46e5;">Welcome to PixLand</h2>
+                    <h2 style="color: #4f46e5;">Welcome to PixLand.ai by Rishi Parsad</h2>
                     <p>Both your email and mobile are being verified. Please use the following code to complete your registration:</p>
                     <div style="font-size: 24px; font-weight: bold; color: #4f46e5; margin: 20px 0;">${otp}</div>
                     <p>This code is valid for 5 minutes.</p>
