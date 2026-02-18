@@ -27,8 +27,8 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: process.env.NODE_ENV === 'production'
-      ? process.env.FRONTEND_URL || "https://your-frontend.azurestaticapps.net"
-      : "*", // Allow all origins in development only
+      ? [process.env.FRONTEND_URL, "https://www.pixland.tech", "https://zealous-plant-0e819f000.6.azurestaticapps.net"]
+      : "*",
     methods: ["GET", "POST"]
   }
 });
@@ -52,8 +52,8 @@ io.on("connection", (socket) => {
 // CORS configuration for Express
 const corsOptions = {
   origin: process.env.NODE_ENV === 'production'
-    ? process.env.FRONTEND_URL || "https://your-frontend.azurestaticapps.net"
-    : "*", // Allow all in development
+    ? [process.env.FRONTEND_URL, "https://www.pixland.tech", "https://zealous-plant-0e819f000.6.azurestaticapps.net"]
+    : "*",
   credentials: true
 };
 app.use(cors(corsOptions));
