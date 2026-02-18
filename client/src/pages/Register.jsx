@@ -82,7 +82,7 @@ const Register = () => {
             <div className="w-full lg:w-1/2 flex flex-col p-8 md:p-20 justify-between relative">
                 <div className="absolute top-8 left-8 flex items-center gap-2">
                     <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold">P</div>
-                    <span className="text-xl font-bold text-gray-800">PixLand<span className="text-indigo-600">.ai</span></span>
+                    <span className="text-xl font-bold text-gray-800">PixLand<span className="text-indigo-600">.ai</span> <span className="text-[10px] text-gray-400 font-normal ml-1">by Rishi Parsad</span></span>
                 </div>
 
                 <div className="flex-1 flex flex-col justify-center max-w-md mx-auto w-full">
@@ -90,7 +90,7 @@ const Register = () => {
                         {step === 1 ? "Create Account" : "Verify Email"}
                     </h2>
                     <p className="text-gray-500 mb-8 text-sm">
-                        {step === 1 ? "Start your journey with PixLand today." : `We've sent a code to ${email}`}
+                        {step === 1 ? "Start your journey with PixLand.ai today." : `We've sent a code to ${email}`}
                     </p>
 
                     {success ? (

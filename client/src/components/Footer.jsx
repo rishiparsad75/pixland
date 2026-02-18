@@ -84,7 +84,7 @@ const Footer = ({ variant = "dark" }) => {
 
                 {/* Copyright */}
                 <p className={`text-xs ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
-                    © 2026 PixLand. All rights reserved.
+                    © 2026 PixLand.ai by Rishi Parsad. All rights reserved.
                 </p>
             </div>
         </motion.footer>

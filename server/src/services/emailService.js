@@ -21,7 +21,7 @@ const sendEmailOTP = async (to, otp) => {
     const emailMessage = {
         senderAddress: senderAddress,
         content: {
-            subject: "Your Pixland Verification Code",
+            subject: "Your Pixland.ai by Rishi Parsad Verification Code",
             plainText: `Welcome to Pixland! Your verification code is: ${otp}. This code is valid for 5 minutes.`,
             html: `
                 <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;">

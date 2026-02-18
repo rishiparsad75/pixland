@@ -40,7 +40,7 @@ const Home = () => {
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
                             <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
                         </span>
-                        PixLand AI: SaaS Event Photography v1.0
+                        PixLand.ai by Rishi Parsad: SaaS Event Photography v1.0
                     </motion.div>
 
                     <motion.h1 variants={itemVariants} className="text-5xl md:text-7xl font-bold text-white mb-6 tracking-tight">

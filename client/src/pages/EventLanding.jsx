@@ -76,7 +76,7 @@ const EventLanding = () => {
                     </Button>
 
                     <p className="mt-6 text-xs text-gray-500 uppercase tracking-widest flex items-center justify-center gap-2">
-                        <Users size={12} /> Powered by PixLand AI
+                        <Users size={12} /> PixLand.ai by Rishi Parsad
                     </p>
                 </Card>
 

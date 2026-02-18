@@ -37,7 +37,7 @@ const AdminLayout = () => {
                     <div className="flex items-center justify-between">
                         {sidebarOpen ? (
                             <Link to="/" className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 hover:opacity-80 transition-opacity">
-                                PixLand Admin
+                                PixLand by Rishi Parsad
                             </Link>
                         ) : (
                             <Link to="/" className="text-xl font-bold text-indigo-400">P</Link>
@@ -98,7 +98,7 @@ const AdminLayout = () => {
             {/* Main Content */}
             <main className="flex-1 overflow-x-hidden">
                 <header className="flex md:hidden items-center justify-between p-4 bg-black border-b border-white/10 sticky top-0 z-50">
-                    <span className="text-lg font-bold">PixLand Admin</span>
+                    <span className="text-lg font-bold text-indigo-400">PixLand by Rishi Parsad</span>
                     <button className="text-white"><Menu /></button>
                 </header>
                 <div className="p-8">
