@@ -40,7 +40,7 @@ const Navbar = () => {
                     </div>
                     <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
                         PixLand<span className="text-indigo-400">.ai</span>
-                        <span className="ml-2 text-[10px] text-gray-400 font-normal uppercase tracking-tighter opacity-70">by Rishi Parsad</span>
+                        <span className="ml-2 text-xs text-gray-400 font-semibold uppercase tracking-wider opacity-100">by Rishi Parsad</span>
                     </span>
                 </Link>
 

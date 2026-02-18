@@ -21,6 +21,7 @@ import Pricing from "./pages/Pricing";
 import Albums from "./pages/admin/Albums";
 import Photos from "./pages/admin/Photos";
 import Settings from "./pages/admin/Settings";
+import ManageSubscriptions from "./pages/admin/ManageSubscriptions";
 import PhotographerSignup from "./pages/PhotographerSignup";
 
 
@@ -65,6 +66,7 @@ function App() {
               <Route path="photographers" element={<Users />} />
               <Route path="albums" element={<Albums />} />
               <Route path="photos" element={<Photos />} />
+              <Route path="subscriptions" element={<ManageSubscriptions />} />
               <Route path="settings" element={<Settings />} />
             </Route>
           </Routes>

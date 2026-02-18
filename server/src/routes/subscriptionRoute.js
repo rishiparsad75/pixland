@@ -1,8 +1,13 @@
 const express = require("express");
 const router = express.Router();
 const User = require("../models/User");
-const { protect } = require("../middleware/authMiddleware");
+const { protect, admin } = require("../middleware/authMiddleware");
 const { hasPremiumAccess, isOnActiveTrial } = require("../middleware/usageLimits");
+const SubscriptionRequest = require("../models/SubscriptionRequest");
+const multer = require("multer");
+const { uploadToBlob } = require("../services/blobService");
+
+const upload = multer({ storage: multer.memoryStorage() });
 
 // Get subscription status and usage
 router.get("/status", protect, async (req, res) => {
@@ -114,6 +119,105 @@ router.post("/upgrade", protect, async (req, res) => {
         });
     } catch (error) {
         console.error("Error upgrading subscription:", error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
+// Submit manual payment request
+router.post("/request", protect, upload.single("screenshot"), async (req, res) => {
+    try {
+        const { plan, utr, amount } = req.body;
+
+        if (!req.file) {
+            return res.status(400).json({ message: "Payment screenshot is required" });
+        }
+
+        // Check if UTR already exists
+        const existingRequest = await SubscriptionRequest.findOne({ utr });
+        if (existingRequest) {
+            return res.status(400).json({ message: "This UTR has already been submitted." });
+        }
+
+        // Upload screenshot to Blob
+        const screenshotUrl = await uploadToBlob(req.file);
+
+        const request = await SubscriptionRequest.create({
+            user: req.user.id,
+            plan: plan || "premium",
+            utr,
+            paymentScreenshot: screenshotUrl,
+            amount: amount || (req.user.role === 'photographer' ? 999 : 499),
+            status: "pending"
+        });
+
+        res.status(201).json({
+            message: "Subscription request submitted successfully. Admin will verify it shortly.",
+            request
+        });
+    } catch (error) {
+        console.error("Error submitting subscription request:", error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
+// Get all requests (Admin only)
+router.get("/admin/requests", protect, admin, async (req, res) => {
+    try {
+        const requests = await SubscriptionRequest.find()
+            .populate("user", "name email role")
+            .sort("-createdAt");
+        res.json(requests);
+    } catch (error) {
+        console.error("Error fetching subscription requests:", error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
+// Verify/Approve request (Admin only)
+router.post("/admin/verify", protect, admin, async (req, res) => {
+    try {
+        const { requestId, status, adminNotes } = req.body;
+
+        if (!requestId || !["approved", "rejected"].includes(status)) {
+            return res.status(400).json({ message: "Invalid request data" });
+        }
+
+        const request = await SubscriptionRequest.findById(requestId).populate("user");
+        if (!request) {
+            return res.status(404).json({ message: "Request not found" });
+        }
+
+        if (request.status !== "pending") {
+            return res.status(400).json({ message: "Request has already been processed" });
+        }
+
+        request.status = status;
+        request.adminNotes = adminNotes;
+        await request.save();
+
+        if (status === "approved") {
+            const user = request.user;
+            user.subscription.plan = request.plan;
+            user.subscription.status = "active";
+            user.subscription.startDate = new Date();
+
+            // Set expiry to 30 days from now
+            const endDate = new Date();
+            endDate.setDate(endDate.getDate() + 30);
+            user.subscription.endDate = endDate;
+
+            user.subscription.isOnTrial = false;
+            user.subscription.trialEndsAt = null;
+
+            await user.save();
+        }
+
+        res.json({
+            message: `Subscription request ${status} successfully`,
+            request
+        });
+    } catch (error) {
+        console.error("Error verifying subscription request:", error);
         res.status(500).json({ message: "Server error" });
     }
 });
