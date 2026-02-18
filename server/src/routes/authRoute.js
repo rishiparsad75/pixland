@@ -90,7 +90,7 @@ router.post("/photographer-register", async (req, res) => {
             mobile,
             cameraModel,
             role: "photographer",
-            status: "pending",
+            status: "active", // Now automated since OTP is verified
         });
 
         if (user) {
@@ -123,12 +123,6 @@ router.post("/login", async (req, res) => {
             console.log(`Login attempt for ${email}: User found, Password match: ${isMatch}`);
             if (isMatch) {
                 // Check user status
-                if (user.status === 'pending') {
-                    return res.status(403).json({
-                        message: "Your account is pending admin approval. Please wait for verification."
-                    });
-                }
-
                 if (user.status === 'rejected') {
                     return res.status(403).json({
                         message: "Your account has been rejected. Please contact support."

@@ -70,16 +70,34 @@ const SuperDashboard = () => {
     if (loading) return <div className="p-10 text-white">Loading SaaS Metrics...</div>;
 
     const chartData = {
-        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+        labels: stats?.monthlyGrowth?.map(mg => mg.month) || ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
         datasets: [
             {
-                label: 'Growth',
-                data: [12, 19, 3, 5, 2, 3],
+                label: 'System Growth (Users)',
+                data: stats?.monthlyGrowth?.map(mg => mg.count) || [0, 0, 0, 0, 0, 0],
                 borderColor: 'rgb(99, 102, 241)',
                 backgroundColor: 'rgba(99, 102, 241, 0.5)',
                 tension: 0.4
             }
         ]
+    };
+
+    const handleDownloadReport = async () => {
+        try {
+            const response = await api.get("/api/analytics/report", {
+                responseType: 'blob'
+            });
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `pixland-report-${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        } catch (error) {
+            console.error("Error downloading report:", error);
+            alert("Failed to download report. Please try again.");
+        }
     };
 
     return (
@@ -89,7 +107,7 @@ const SuperDashboard = () => {
                     <h1 className="text-3xl font-bold text-white mb-2">System Intelligence</h1>
                     <p className="text-gray-400">PixLand Global SaaS Analytics & Management</p>
                 </div>
-                <Button className="gap-2">
+                <Button className="gap-2" onClick={handleDownloadReport}>
                     <TrendingUp size={18} />
                     Download Report
                 </Button>

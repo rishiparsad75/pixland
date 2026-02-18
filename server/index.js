@@ -3,8 +3,25 @@ const dns = require('dns');
 // Force Google DNS to resolve MongoDB Atlas SRV records
 dns.setServers(['8.8.8.8', '8.8.4.4']);
 
+const User = require("./src/models/User");
+const runMigrations = async () => {
+  try {
+    const result = await User.updateMany(
+      { role: "photographer", status: "pending" },
+      { $set: { status: "active" } }
+    );
+    if (result.modifiedCount > 0) {
+      console.log(`[Migration] Activated ${result.modifiedCount} pending photographers.`);
+    }
+  } catch (err) {
+    console.error("[Migration] Error:", err);
+  }
+};
+
 const connectDB = require("./src/config/db");
-connectDB();
+connectDB().then(() => {
+  runMigrations();
+});
 
 const express = require("express");
 const cors = require("cors");
