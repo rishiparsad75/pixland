@@ -1,7 +1,12 @@
 require("dotenv").config();
 const dns = require('dns');
 // Force Google DNS to resolve MongoDB Atlas SRV records
-dns.setServers(['8.8.8.8', '8.8.4.4']);
+try {
+  dns.setServers(['8.8.8.8', '8.8.4.4']);
+  console.log("[Setup] DNS servers set to Google Public DNS.");
+} catch (err) {
+  console.warn("[Setup] Warning: Could not set custom DNS servers. This is expected in some cloud environments.", err.message);
+}
 
 const User = require("./src/models/User");
 const runMigrations = async () => {
@@ -111,5 +116,6 @@ app.use("/api/subscription", subscriptionRoute);
 const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`[Startup] PixLand Backend running on port ${PORT}`);
+  console.log(`[Startup] Environment: ${process.env.NODE_ENV || 'development'}`);
 });

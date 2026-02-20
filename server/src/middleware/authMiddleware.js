@@ -43,4 +43,6 @@ const photographer = (req, res, next) => {
     }
 };
 
-module.exports = { protect, superAdmin, photographer };
+const admin = superAdmin;
+
+module.exports = { protect, superAdmin, admin, photographer };
