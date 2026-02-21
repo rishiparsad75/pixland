@@ -1,19 +1,29 @@
-const faceapi = require("@vladmandic/face-api");
-const canvas = require("canvas");
 const path = require("path");
-const fs = require("fs");
-
-const { Canvas, Image, ImageData } = canvas;
-faceapi.env.monkeyPatch({ Canvas, Image, ImageData });
 
 const MODEL_PATH = path.join(__dirname, "../../models");
 let modelsLoaded = false;
+let faceapi = null;
+let canvasLib = null;
 
 /**
- * Load models if not already loaded
+ * Lazily load heavy packages only when face detection is actually needed.
+ * This prevents OOM crashes at server startup on Azure.
+ */
+const loadHeavyDeps = () => {
+    if (!faceapi) {
+        faceapi = require("@vladmandic/face-api");
+        canvasLib = require("canvas");
+        const { Canvas, Image, ImageData } = canvasLib;
+        faceapi.env.monkeyPatch({ Canvas, Image, ImageData });
+    }
+};
+
+/**
+ * Load face-api models if not already loaded
  */
 const loadModels = async () => {
     if (modelsLoaded) return;
+    loadHeavyDeps();
 
     try {
         console.log("[FaceAPI] Loading models from:", MODEL_PATH);
@@ -29,24 +39,19 @@ const loadModels = async () => {
 };
 
 /**
- * Detect faces and extract descriptors from an image URL or buffer
+ * Detect faces and extract descriptors from an image buffer or URL.
+ * Used only by the legacy /identify route (server-side detection).
  */
 const detectAndExtractDescriptors = async (imageSource) => {
+    loadHeavyDeps();
     await loadModels();
 
     try {
-        let img;
-        if (typeof imageSource === 'string') {
-            img = await canvas.loadImage(imageSource);
-        } else {
-            img = await canvas.loadImage(imageSource);
-        }
-
+        const img = await canvasLib.loadImage(imageSource);
         const detections = await faceapi
             .detectAllFaces(img, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.35 }))
             .withFaceLandmarks()
             .withFaceDescriptors();
-
 
         return detections.map(d => ({
             descriptor: Array.from(d.descriptor),
@@ -64,22 +69,21 @@ const detectAndExtractDescriptors = async (imageSource) => {
 };
 
 /**
- * Legacy support for identify route (detect only)
+ * Legacy support for identify route
  */
 const detectFaces = async (imageUrl) => {
     const results = await detectAndExtractDescriptors(imageUrl);
     return results.map(r => ({
-        faceId: Math.random().toString(36).substr(2, 9), // Mock faceId for legacy compatibility
+        faceId: Math.random().toString(36).substr(2, 9),
         faceRectangle: r.faceRectangle,
         descriptor: r.descriptor
     }));
 };
 
 /**
- * Compare two face descriptors using Euclidean Distance
- * face-api.js descriptors are L2-normalized and designed for Euclidean comparison.
- * Distance < 0.5 = strong match, < 0.6 = good match, > 0.6 = likely different person
- * Returns DISTANCE (lower is better, the opposite of cosine similarity)
+ * Compare two face descriptors using Euclidean Distance.
+ * This is pure math — no heavy deps needed at all.
+ * Distance < 0.5 = strong match, < 0.6 = good match, > 0.6 = different person.
  */
 const compareFaces = (desc1, desc2) => {
     if (!desc1 || !desc2) return Infinity;
@@ -92,7 +96,7 @@ const compareFaces = (desc1, desc2) => {
         const diff = v1[i] - v2[i];
         sum += diff * diff;
     }
-    return Math.sqrt(sum); // Euclidean distance
+    return Math.sqrt(sum);
 };
 
 module.exports = {
@@ -101,4 +105,3 @@ module.exports = {
     compareFaces,
     loadModels
 };
-
