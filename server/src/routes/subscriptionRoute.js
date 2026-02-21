@@ -160,6 +160,18 @@ router.post("/request", protect, upload.single("screenshot"), async (req, res) =
     }
 });
 
+// Get user's own requests
+router.get("/my-requests", protect, async (req, res) => {
+    try {
+        const requests = await SubscriptionRequest.find({ user: req.user.id })
+            .sort("-createdAt");
+        res.json(requests);
+    } catch (error) {
+        console.error("Error fetching user subscription requests:", error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
 // Get all requests (Admin only)
 router.get("/admin/requests", protect, admin, async (req, res) => {
     try {

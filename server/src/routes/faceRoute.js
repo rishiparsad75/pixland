@@ -1,155 +1,134 @@
 const express = require("express");
 const multer = require("multer");
+
+
 const { protect } = require("../middleware/authMiddleware");
-const { detectFaces, findSimilarFaces } = require("../services/faceService");
-const { uploadToBlob } = require("../services/blobService");
+const { detectAndExtractDescriptors, compareFaces } = require("../services/faceService");
+
 const Image = require("../models/Image");
 
 const router = express.Router();
-const FACE_LIST_ID = "pixland_global_list";
+
+
 
 const upload = multer({
     storage: multer.memoryStorage(),
 });
 
-// Allow unauthenticated access for QR scan functionality
-router.post("/identify", upload.single("selfie"), async (req, res) => {
+
+// New Endpoint: Match based on descriptor from client
+
+
+router.post("/match", async (req, res) => {
     try {
-        // Validate file upload
-        if (!req.file) {
-            return res.status(400).json({
-                error: "No selfie uploaded",
-                message: "Please upload a clear photo of your face to find your photos."
-            });
+        const { descriptor, eventId, sessionId } = req.body;
+
+        if (!descriptor || !Array.isArray(descriptor)) {
+            return res.status(400).json({ error: "Invalid descriptor provided" });
         }
 
-        // Validate file type
-        if (!req.file.mimetype.startsWith('image/')) {
-            return res.status(400).json({
-                error: "Invalid file type",
-                message: "Please upload a valid image file (JPG, PNG, etc.)"
-            });
-        }
+        console.log(`[Face Match] Searching for matches. Event: ${eventId || 'All'}`);
 
-        console.log(`[Face Identify] Processing selfie: ${req.file.originalname}, size: ${req.file.size} bytes`);
+        // 1. Fetch images (optionally filter by event)
+        const query = { "metadata.detectedFaces.0": { $exists: true } };
+        if (eventId) query.event = eventId;
 
-        // 1. Upload selfie temporarily to Blob
-        let selfieUrl;
-        try {
-            selfieUrl = await uploadToBlob(req.file);
-            console.log(`[Face Identify] Selfie uploaded to blob: ${selfieUrl}`);
-        } catch (uploadError) {
-            console.error("[Face Identify] Blob upload failed:", uploadError);
-            return res.status(500).json({
-                error: "Upload failed",
-                message: "Failed to process your image. Please try again."
-            });
-        }
+        const images = await Image.find(query);
+        const matches = [];
 
-        // 2. Detect face in selfie
-        let detectedFaces;
-        try {
-            detectedFaces = await detectFaces(selfieUrl);
-            console.log(`[Face Identify] Detected ${detectedFaces.length} face(s)`);
-        } catch (faceDetectionError) {
-            console.error("[Face Identify] Face detection failed:", faceDetectionError);
-            return res.status(500).json({
-                error: "Face detection failed",
-                message: "Unable to analyze your photo. Please ensure your face is clearly visible and try again."
-            });
-        }
-
-        if (detectedFaces.length === 0) {
-            return res.status(400).json({
-                error: "No face detected",
-                message: "We couldn't detect a face in your photo. Please upload a clear, front-facing selfie and try again."
-            });
-        }
-
-        if (detectedFaces.length > 1) {
-            console.log(`[Face Identify] Multiple faces detected (${detectedFaces.length}), using first face`);
-        }
-
-        const faceId = detectedFaces[0].faceId;
-
-        // 3. Find similar faces in the global FaceList
-        let matches;
-        try {
-            matches = await findSimilarFaces(faceId, FACE_LIST_ID);
-            console.log(`[Face Identify] Found ${matches?.length || 0} potential matches`);
-        } catch (matchError) {
-            console.error("[Face Identify] Face matching failed:", matchError);
-            return res.status(500).json({
-                error: "Face matching failed",
-                message: "Unable to search for your photos. Please try again."
-            });
-        }
-
-        if (!matches || matches.length === 0) {
-            return res.json({
-                message: "No photos found",
-                images: [],
-                matchCount: 0
-            });
-        }
-
-        // 4. Extract persistedFaceIds and query our Database
-        const { eventId, sessionId } = req.body;
-        const persistedFaceIds = matches
-            .filter(match => match.confidence > 0.6) // Confidence threshold
-            .map(match => match.persistedFaceId);
-
-        console.log(`[Face Identify] High-confidence matches: ${persistedFaceIds.length}`);
-
-        if (persistedFaceIds.length === 0) {
-            return res.json({
-                message: "No high-confidence matches found",
-                images: [],
-                matchCount: 0
-            });
-        }
-
-        // Find images that contain any of the matched persistedFaceIds
-        const query = {
-            "metadata.detectedFaces.persistedFaceId": { $in: persistedFaceIds }
-        };
-        if (eventId) {
-            query.event = eventId;
-            console.log(`[Face Identify] Filtering by event: ${eventId}`);
-        }
-
-        const matchedImages = await Image.find(query);
-        console.log(`[Face Identify] Found ${matchedImages.length} matching images in database`);
-
-        const responseData = {
-            message: matchedImages.length > 0
-                ? `Found ${matchedImages.length} photo${matchedImages.length === 1 ? '' : 's'} of you!`
-                : "No photos found",
-            images: matchedImages,
-            matchCount: matchedImages.length
-        };
-
-        // Emit event if sessionId is present (for QR scan desktop sync)
-        if (sessionId) {
-            const io = req.app.get("io");
-            if (io) {
-                io.to(sessionId).emit("scan_complete", responseData);
-                console.log(`[Face Identify] Emitted scan_complete to room ${sessionId}`);
-            } else {
-                console.warn(`[Face Identify] Socket.io not available for session ${sessionId}`);
+        // 2. Compare descriptors using Euclidean Distance (lower = more similar)
+        for (const img of images) {
+            for (const face of img.metadata.detectedFaces) {
+                if (face.descriptor) {
+                    const distance = compareFaces(descriptor, face.descriptor);
+                    // Threshold: < 0.5 = strong match, < 0.6 = good match
+                    if (distance < 0.5) {
+                        matches.push({
+                            ...img.toObject(),
+                            similarity: parseFloat((1 - distance).toFixed(3)) // Convert to 0-1 score for UI
+                        });
+                        break; // Move to next image once one face matches
+                    }
+                }
             }
         }
 
-        res.json(responseData);
+        // 3. Sort by similarity
+        matches.sort((a, b) => b.similarity - a.similarity);
 
+        const responseData = {
+            message: matches.length > 0 ? `Found ${matches.length} matches!` : "No matches found",
+            images: matches,
+            matchCount: matches.length
+        };
+
+        // 4. Socket Sync if needed
+        if (sessionId) {
+            const io = req.app.get("io");
+            if (io) io.to(sessionId).emit("scan_complete", responseData);
+        }
+
+        res.json(responseData);
     } catch (error) {
-        console.error("[Face Identify] Unexpected error:", error);
-        res.status(500).json({
-            error: "Identification failed",
-            message: "An unexpected error occurred. Please try again later."
-        });
+        console.error("[Face Match] Error:", error);
+        res.status(500).json({ error: "Match failed" });
     }
 });
+
+// Legacy Identity Route (Uses server-side detection)
+router.post("/identify", upload.single("selfie"), async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: "No selfie uploaded" });
+
+        const { eventId, sessionId } = req.body;
+
+        // 1. Detect & Extract from selfie
+        const results = await detectAndExtractDescriptors(req.file.buffer);
+        if (results.length === 0) {
+            return res.status(400).json({ message: "No face detected in selfie" });
+        }
+
+        const userDescriptor = results[0].descriptor;
+
+        // 2. Match against DB (same logic as /match)
+        const query = { "metadata.detectedFaces.0": { $exists: true } };
+        if (eventId) query.event = eventId;
+
+        const images = await Image.find(query);
+        const matches = [];
+
+        for (const img of images) {
+            for (const face of img.metadata.detectedFaces) {
+                if (face.descriptor) {
+                    const distance = compareFaces(userDescriptor, face.descriptor);
+                    if (distance < 0.5) {
+                        matches.push({ ...img.toObject(), similarity: parseFloat((1 - distance).toFixed(3)) });
+                        break;
+                    }
+                }
+            }
+        }
+
+        matches.sort((a, b) => b.similarity - a.similarity);
+
+        const responseData = {
+            message: matches.length > 0 ? `Found ${matches.length} photos!` : "No photos found",
+            images: matches,
+            matchCount: matches.length
+        };
+
+        if (sessionId) {
+            const io = req.app.get("io");
+            if (io) io.to(sessionId).emit("scan_complete", responseData);
+        }
+
+        res.json(responseData);
+    } catch (error) {
+        console.error("[Face Identify] Error:", error);
+        res.status(500).json({ error: "Identification failed" });
+    }
+});
+
 
 const Person = require("../models/Person");
 
@@ -173,22 +152,16 @@ router.post("/sync-groups", protect, async (req, res) => {
         const operations = [];
         const personMap = new Map(); // persistedFaceId -> { count, thumbnail }
 
-        // Aggregate data in memory (for simplicity - huge datasets would need aggregation pipeline)
+        // Aggregate data in memory
         for (const img of images) {
             if (img.metadata && img.metadata.detectedFaces) {
                 for (const face of img.metadata.detectedFaces) {
-                    if (face.persistedFaceId) {
-                        const pid = face.persistedFaceId;
-                        if (!personMap.has(pid)) {
-                            personMap.set(pid, { count: 0, thumbnail: img.url });
-                        }
-                        const p = personMap.get(pid);
-                        p.count += 1;
-                        // Determine "best" thumbnail logic here if needed (e.g., biggest face)
-                    }
+                    // Grouping logic for face-api might need clustering
+                    // For now, we keep the schema compatible if possible
                 }
             }
         }
+
 
         // Bulk Write to DB
         for (const [pid, data] of personMap.entries()) {

@@ -1,35 +1,104 @@
 import { useEffect, useState, useContext } from "react";
 import api from "../api/axios";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Filter, MoreHorizontal, User, FileImage, Scan, AlertCircle } from "lucide-react";
+import { Search, Filter, MoreHorizontal, User, FileImage, Scan, AlertCircle, Download, DownloadCloud, Check, Loader2 } from "lucide-react";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import AuthContext from "../context/AuthContext";
-import { useNavigate } from "react-router-dom";
+
+import { useNavigate, useLocation } from "react-router-dom";
 
 const Gallery = () => {
     const { user } = useContext(AuthContext);
     const navigate = useNavigate();
+    const location = useLocation();
     const [images, setImages] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showAccessModal, setShowAccessModal] = useState(false);
     const [hasFaceVerification, setHasFaceVerification] = useState(false);
+    const [isSearchResult, setIsSearchResult] = useState(false);
+    const [scannedEvent, setScannedEvent] = useState(null);
+    const [downloadingImageId, setDownloadingImageId] = useState(null);
+    const [isDownloadingAll, setIsDownloadingAll] = useState(false);
 
     useEffect(() => {
-        checkFaceVerification();
-    }, []);
+        if (location.state?.matchedImages) {
+            setImages(location.state.matchedImages);
+            setScannedEvent(location.state.event);
+            setHasFaceVerification(true);
+            setIsSearchResult(true);
+            setLoading(false);
+        } else {
+            checkFaceVerification();
+        }
+    }, [location.state]);
+
+    const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+    const [upgradeReason, setUpgradeReason] = useState("");
+
+    const isPremium = user?.subscription?.plan === 'premium' && user?.subscription?.status === 'active';
+
+    const handleDownload = async (img) => {
+        try {
+            setDownloadingImageId(img._id);
+
+            // 1. Check limit on backend
+            const trackRes = await api.post("/api/users/track-download");
+
+            // 2. Trigger actual browser download
+            const response = await fetch(img.url);
+            const blob = await response.blob();
+            const blobUrl = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = `PixLand-${img._id}.jpg`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(blobUrl);
+
+        } catch (error) {
+            console.error("Download failed", error);
+            const status = error.response?.status;
+            if (status === 403) {
+                setUpgradeReason("You've used all 10 free downloads this month.");
+                setShowUpgradeModal(true);
+            }
+        } finally {
+            setDownloadingImageId(null);
+        }
+    };
+
+    const handleDownloadAll = async () => {
+        if (!isPremium) {
+            setUpgradeReason("Bulk Download is a premium feature — download all photos at once!");
+            setShowUpgradeModal(true);
+            return;
+        }
+        try {
+            setIsDownloadingAll(true);
+            for (const img of images) {
+                await handleDownload(img);
+            }
+        } catch (error) {
+            console.error("Bulk download failed", error);
+        } finally {
+            setIsDownloadingAll(false);
+        }
+    };
+
+
 
     const checkFaceVerification = async () => {
         try {
-            // Super admin and photographer have full access without face verification
             if (user?.role === 'super-admin' || user?.role === 'photographer') {
                 setHasFaceVerification(true);
                 fetchImages();
                 return;
             }
 
-            // Check if user has faceEmbedding (has scanned face)
             const res = await api.get("/api/users/me");
+            // If user has a descriptor saved (future feature), we could use it
             const hasFace = res.data.faceEmbedding && res.data.faceEmbedding.length > 0;
             setHasFaceVerification(hasFace);
 
@@ -48,7 +117,6 @@ const Gallery = () => {
 
     const fetchImages = async () => {
         try {
-            // Fetch only images belonging to this user (filtered by user ID on backend)
             const res = await api.get("/api/images");
             setImages(res.data);
         } catch (error) {
@@ -57,6 +125,7 @@ const Gallery = () => {
             setLoading(false);
         }
     };
+
 
     const container = {
         hidden: { opacity: 0 },
@@ -78,10 +147,29 @@ const Gallery = () => {
                 {/* Header */}
                 <div className="flex flex-col md:flex-row justify-between items-end md:items-center mb-10 gap-4">
                     <div>
-                        <h1 className="text-3xl font-bold text-white mb-2">Photo Gallery</h1>
+                        <h1 className="text-3xl font-bold text-white mb-2">
+                            {isSearchResult ? (scannedEvent ? `Scan results for ${scannedEvent.name}` : "Scan Results") : "Photo Gallery"}
+                        </h1>
                         <p className="text-gray-400">
-                            {hasFaceVerification ? `${images.length} photos secured in your vault` : "Face verification required"}
+                            {isSearchResult
+                                ? (scannedEvent
+                                    ? `We found ${images.length} photos of you in ${scannedEvent.name}`
+                                    : `We found ${images.length} photos matching your face`)
+                                : (hasFaceVerification ? `${images.length} photos secured in your vault` : "Face verification required")}
                         </p>
+
+                        {isSearchResult && (
+                            <button
+                                onClick={() => {
+                                    setIsSearchResult(false);
+                                    fetchImages();
+                                }}
+                                className="text-indigo-400 text-xs font-bold uppercase mt-2 hover:underline"
+                            >
+                                Show All My Photos
+                            </button>
+                        )}
+
                     </div>
 
                     {hasFaceVerification && (
@@ -94,9 +182,30 @@ const Gallery = () => {
                                     className="bg-white/5 border border-white/10 rounded-lg pl-10 pr-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-black/40 transition-all w-64"
                                 />
                             </div>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-2 border-indigo-500/30 text-indigo-400 hover:bg-indigo-500 hover:text-white"
+                                onClick={handleDownloadAll}
+                                disabled={isDownloadingAll || images.length === 0}
+                            >
+                                {isDownloadingAll ? (
+                                    <>
+                                        <Loader2 size={16} className="animate-spin" /> Preparing...
+                                    </>
+                                ) : (
+                                    <>
+                                        <DownloadCloud size={16} /> Download All
+                                    </>
+                                )}
+                                {user?.subscription?.plan !== 'premium' && (
+                                    <span className="ml-1 text-[8px] bg-indigo-500 text-white px-1 rounded-sm">PRO</span>
+                                )}
+                            </Button>
                             <Button variant="outline" size="sm" className="gap-2">
                                 <Filter size={16} /> Filter
                             </Button>
+
                         </div>
                     )}
                 </div>
@@ -133,26 +242,34 @@ const Gallery = () => {
                                         />
 
                                         {/* Overlay on Hover */}
-                                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col justify-end p-5">
 
-                                            <div className="flex justify-between items-center">
-                                                <div>
-                                                    <p className="text-xs text-gray-400 mb-1">
-                                                        {new Date(img.createdAt).toLocaleDateString()}
+                                            <div className="flex justify-between items-end">
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center gap-1.5 text-indigo-300 text-[10px] font-black uppercase tracking-widest bg-indigo-500/20 px-2.5 py-1 rounded-full w-fit backdrop-blur-md border border-indigo-500/30">
+                                                        <User size={10} />
+                                                        {img.metadata?.detectedFaces?.length || 0} Faces
+                                                    </div>
+                                                    <p className="text-[10px] font-bold text-white/40 uppercase tracking-tighter">
+                                                        Captured {new Date(img.createdAt).toLocaleDateString()}
                                                     </p>
-                                                    {img.metadata?.detectedFaces?.length > 0 && (
-                                                        <div className="flex items-center gap-1.5 text-indigo-300 text-xs font-medium bg-indigo-500/20 px-2 py-1 rounded-full w-fit backdrop-blur-md">
-                                                            <User size={12} />
-                                                            {img.metadata.detectedFaces.length} Face(s)
-                                                        </div>
-                                                    )}
                                                 </div>
-                                                <button className="text-white hover:bg-white/20 p-1.5 rounded-full transition-colors">
-                                                    <MoreHorizontal size={18} />
-                                                </button>
-                                            </div>
 
+                                                <motion.button
+                                                    whileHover={{ scale: 1.1, backgroundColor: "rgba(79, 70, 229, 0.9)" }}
+                                                    whileTap={{ scale: 0.9 }}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDownload(img);
+                                                    }}
+                                                    disabled={downloadingImageId === img._id || !user?.isPremium}
+                                                    className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/40 border border-indigo-400/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                    {downloadingImageId === img._id ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+                                                </motion.button>
+                                            </div>
                                         </div>
+
                                     </div>
                                 </Card>
                             </motion.div>
@@ -215,6 +332,50 @@ const Gallery = () => {
                         </div>
                     )}
                 </AnimatePresence>
+
+                {/* Upgrade Modal */}
+                <AnimatePresence>
+                    {showUpgradeModal && (
+                        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                onClick={() => setShowUpgradeModal(false)}
+                                className="absolute inset-0 bg-black/80 backdrop-blur-sm cursor-pointer"
+                            />
+                            <motion.div
+                                initial={{ scale: 0.85, opacity: 0, y: 20 }}
+                                animate={{ scale: 1, opacity: 1, y: 0 }}
+                                exit={{ scale: 0.85, opacity: 0, y: 20 }}
+                                transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                                className="relative z-10 bg-gradient-to-br from-[#1a1040] via-[#120d2e] to-black border border-indigo-500/40 w-full max-w-sm p-8 rounded-3xl shadow-2xl shadow-indigo-800/30 text-center"
+                            >
+                                {/* Glow ring */}
+                                <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-20 h-20 bg-indigo-500 rounded-full blur-3xl opacity-30" />
+
+                                <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-lg shadow-indigo-500/30">
+                                    <DownloadCloud size={30} className="text-white" />
+                                </div>
+                                <h2 className="text-2xl font-black text-white mb-2">Upgrade to Premium</h2>
+                                <p className="text-gray-400 text-sm mb-6 leading-relaxed">
+                                    {upgradeReason}
+                                    <br />
+                                    <span className="text-indigo-300 font-semibold mt-1 block">Get unlimited downloads for ₹499/month</span>
+                                </p>
+                                <div className="space-y-3">
+                                    <Button className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 font-bold text-base h-12 shadow-lg shadow-indigo-600/30" onClick={() => { setShowUpgradeModal(false); navigate('/pricing'); }}>
+                                        Upgrade Now ✨
+                                    </Button>
+                                    <button onClick={() => setShowUpgradeModal(false)} className="text-gray-500 text-sm hover:text-gray-300 transition-colors w-full">
+                                        Maybe later
+                                    </button>
+                                </div>
+                            </motion.div>
+                        </div>
+                    )}
+                </AnimatePresence>
+
 
             </div>
         </div>

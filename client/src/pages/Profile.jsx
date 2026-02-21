@@ -1,11 +1,26 @@
-import { useContext } from "react";
+import { useContext, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import AuthContext from "../context/AuthContext";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
-import { User, Mail, HardDrive, Key } from "lucide-react";
+import { User, Mail, HardDrive, Key, Crown, Check, Share2, Download, Zap, X } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+
 
 const Profile = () => {
     const { user, logout } = useContext(AuthContext);
+    const navigate = useNavigate();
+    const [showSubscription, setShowSubscription] = useState(false);
+    const [copied, setCopied] = useState(false);
+
+
+    const shareLink = `${window.location.origin}/register?ref=${user._id}`;
+
+    const handleCopyLink = () => {
+        navigator.clipboard.writeText(shareLink);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
 
     return (
         <div className="min-h-screen bg-black pt-28 px-6">
@@ -65,13 +80,15 @@ const Profile = () => {
                         <div className="mt-8 pt-8 border-t border-white/10 flex justify-between items-center">
                             <Button
                                 variant="outline"
-                                onClick={() => window.location.href = '/pricing'}
-                                className="border-indigo-400/30 hover:bg-indigo-500/10"
+                                onClick={() => setShowSubscription(true)}
+                                className="border-indigo-400/30 hover:bg-indigo-500/10 group gap-2"
                             >
+                                <Crown size={16} className="text-indigo-400 group-hover:scale-110 transition-transform" />
                                 View Subscription
                             </Button>
                             <Button variant="danger" onClick={logout}>Sign Out</Button>
                         </div>
+
                     </Card>
 
                     {/* Storage & Security */}
@@ -106,8 +123,119 @@ const Profile = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Premium Subscription Modal */}
+            <AnimatePresence>
+                {showSubscription && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="absolute inset-0 bg-black/90 backdrop-blur-2xl"
+                            onClick={() => setShowSubscription(false)}
+                        />
+
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                            className="relative w-full max-w-lg bg-slate-900 border border-indigo-500/30 rounded-[3rem] overflow-hidden shadow-[0_0_100px_rgba(79,70,229,0.2)]"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {/* Header Gradient */}
+                            <div className="h-32 bg-gradient-to-br from-indigo-600 to-purple-700 relative flex items-center justify-center">
+                                <motion.div
+                                    initial={{ scale: 0, rotate: -45 }}
+                                    animate={{ scale: 1, rotate: 0 }}
+                                    transition={{ type: "spring", delay: 0.2 }}
+                                    className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center"
+                                >
+                                    <Crown size={32} className="text-white" />
+                                </motion.div>
+                                <button
+                                    onClick={() => setShowSubscription(false)}
+                                    className="absolute top-6 right-6 p-2 bg-black/20 hover:bg-black/40 rounded-full text-white/70 hover:text-white transition-colors"
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            <div className="p-10 text-center">
+                                <motion.div
+                                    initial={{ y: 10, opacity: 0 }}
+                                    animate={{ y: 0, opacity: 1 }}
+                                    transition={{ delay: 0.3 }}
+                                >
+                                    <h2 className="text-3xl font-black text-white mb-2 tracking-tight">Welcome to Premium</h2>
+                                    <p className="text-indigo-400 font-bold mb-8 uppercase tracking-widest text-xs">Exclusively for {user.name}</p>
+                                </motion.div>
+
+                                <div className="space-y-4 mb-10">
+                                    {[
+                                        { icon: <Zap size={18} />, title: "Unlimited Downloads", desc: "No limits on your photo collections" },
+                                        { icon: <Crown size={18} />, title: "HD & 4K Quality", desc: "Crystal clear resolution for every shot" },
+                                        { icon: <Share2 size={18} />, title: "Add Friend via Link", desc: "Share your premium access with others" }
+                                    ].map((feature, i) => (
+                                        <motion.div
+                                            key={i}
+                                            initial={{ x: -20, opacity: 0 }}
+                                            animate={{ x: 0, opacity: 1 }}
+                                            transition={{ delay: 0.4 + (i * 0.1) }}
+                                            className="flex items-center gap-4 p-4 bg-white/5 border border-white/10 rounded-2xl text-left"
+                                        >
+                                            <div className="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center text-indigo-400">
+                                                {feature.icon}
+                                            </div>
+                                            <div>
+                                                <h3 className="text-white font-bold text-sm tracking-tight">{feature.title}</h3>
+                                                <p className="text-gray-500 text-xs">{feature.desc}</p>
+                                            </div>
+                                            <Check className="ml-auto text-indigo-400" size={16} />
+                                        </motion.div>
+                                    ))}
+                                </div>
+
+                                {user.role === 'user' && (
+                                    <motion.div
+                                        initial={{ y: 20, opacity: 0 }}
+                                        animate={{ y: 0, opacity: 1 }}
+                                        transition={{ delay: 0.7 }}
+                                        className="bg-indigo-500/10 border border-indigo-500/30 rounded-2xl p-6 mb-8"
+                                    >
+                                        <p className="text-xs text-indigo-300 font-bold uppercase tracking-widest mb-4">Your Exclusive Referral Link</p>
+                                        <div className="flex gap-2">
+                                            <div className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-gray-400 text-xs font-mono truncate text-left">
+                                                {shareLink}
+                                            </div>
+                                            <Button
+                                                onClick={handleCopyLink}
+                                                className={`min-w-[100px] rounded-xl text-xs font-bold transition-all ${copied ? 'bg-green-500 hover:bg-green-600' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+                                            >
+                                                {copied ? "Copied!" : "Copy Link"}
+                                            </Button>
+                                        </div>
+                                    </motion.div>
+                                )}
+
+                                <Button
+                                    onClick={() => {
+                                        setShowSubscription(false);
+                                        navigate("/gallery");
+                                    }}
+                                    className="w-full py-5 rounded-2xl bg-white text-black hover:bg-gray-200 font-black"
+                                >
+                                    Continue to Gallery
+                                </Button>
+
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };
+
 
 export default Profile;

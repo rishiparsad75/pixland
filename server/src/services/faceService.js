@@ -1,95 +1,104 @@
-const msRest = require("@azure/ms-rest-js");
-const Face = require("@azure/cognitiveservices-face");
+const faceapi = require("@vladmandic/face-api");
+const canvas = require("canvas");
+const path = require("path");
+const fs = require("fs");
 
-const key = process.env.AZURE_FACE_KEY;
-const endpoint = process.env.AZURE_FACE_ENDPOINT;
-const useMock = process.env.USE_FACE_MOCK === "true";
+const { Canvas, Image, ImageData } = canvas;
+faceapi.env.monkeyPatch({ Canvas, Image, ImageData });
 
-const credentials = new msRest.ApiKeyCredentials({
-    inHeader: { "Ocp-Apim-Subscription-Key": key },
-});
-
-const client = new Face.FaceClient(credentials, endpoint);
+const MODEL_PATH = path.join(__dirname, "../../models");
+let modelsLoaded = false;
 
 /**
- * Mock data for development when Azure Face API is gated or unavailable
+ * Load models if not already loaded
  */
-const mockFace = (id) => ({
-    faceId: id || "mock-face-id-" + Math.random().toString(36).substr(2, 9),
-    faceRectangle: { top: 10, left: 10, width: 100, height: 100 }
-});
+const loadModels = async () => {
+    if (modelsLoaded) return;
 
+    try {
+        console.log("[FaceAPI] Loading models from:", MODEL_PATH);
+        await faceapi.nets.ssdMobilenetv1.loadFromDisk(MODEL_PATH);
+        await faceapi.nets.faceLandmark68Net.loadFromDisk(MODEL_PATH);
+        await faceapi.nets.faceRecognitionNet.loadFromDisk(MODEL_PATH);
+        modelsLoaded = true;
+        console.log("[FaceAPI] Models loaded successfully");
+    } catch (error) {
+        console.error("[FaceAPI] Error loading models:", error);
+        throw new Error("Face models not found. Please ensure weight files are in /server/models");
+    }
+};
+
+/**
+ * Detect faces and extract descriptors from an image URL or buffer
+ */
+const detectAndExtractDescriptors = async (imageSource) => {
+    await loadModels();
+
+    try {
+        let img;
+        if (typeof imageSource === 'string') {
+            img = await canvas.loadImage(imageSource);
+        } else {
+            img = await canvas.loadImage(imageSource);
+        }
+
+        const detections = await faceapi
+            .detectAllFaces(img, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.35 }))
+            .withFaceLandmarks()
+            .withFaceDescriptors();
+
+
+        return detections.map(d => ({
+            descriptor: Array.from(d.descriptor),
+            faceRectangle: {
+                top: d.detection.box.y,
+                left: d.detection.box.x,
+                width: d.detection.box.width,
+                height: d.detection.box.height
+            }
+        }));
+    } catch (error) {
+        console.error("[FaceAPI] Detection failed:", error);
+        throw error;
+    }
+};
+
+/**
+ * Legacy support for identify route (detect only)
+ */
 const detectFaces = async (imageUrl) => {
-    if (useMock) {
-        console.log(" [MOCK] Detecting faces for:", imageUrl);
-        return [mockFace()];
-    }
-
-    try {
-        const detectedFaces = await client.face.detectWithUrl(imageUrl, {
-            returnFaceId: true,
-            returnFaceLandmarks: false,
-            // Deprecated attributes (age, gender, emotion) removed due to Azure gating/Responsible AI policy
-            recognitionModel: "recognition_04",
-            detectionModel: "detection_03"
-        });
-        return detectedFaces;
-    } catch (error) {
-        console.error("Error detecting faces:", error);
-        throw error;
-    }
+    const results = await detectAndExtractDescriptors(imageUrl);
+    return results.map(r => ({
+        faceId: Math.random().toString(36).substr(2, 9), // Mock faceId for legacy compatibility
+        faceRectangle: r.faceRectangle,
+        descriptor: r.descriptor
+    }));
 };
 
-const createFaceList = async (faceListId) => {
-    if (useMock) {
-        console.log(" [MOCK] Creating face list:", faceListId);
-        return;
-    }
+/**
+ * Compare two face descriptors using Euclidean Distance
+ * face-api.js descriptors are L2-normalized and designed for Euclidean comparison.
+ * Distance < 0.5 = strong match, < 0.6 = good match, > 0.6 = likely different person
+ * Returns DISTANCE (lower is better, the opposite of cosine similarity)
+ */
+const compareFaces = (desc1, desc2) => {
+    if (!desc1 || !desc2) return Infinity;
 
-    try {
-        await client.faceList.create(faceListId, faceListId, { recognitionModel: "recognition_04" });
-    } catch (error) {
-        if (error.code !== "FaceListAlreadyExists") throw error;
+    const v1 = new Float32Array(desc1);
+    const v2 = new Float32Array(desc2);
+
+    let sum = 0;
+    for (let i = 0; i < v1.length; i++) {
+        const diff = v1[i] - v2[i];
+        sum += diff * diff;
     }
+    return Math.sqrt(sum); // Euclidean distance
 };
 
-const addFaceToList = async (faceListId, imageUrl, userData) => {
-    if (useMock) {
-        const mockPersistedId = "mock-persisted-" + Math.random().toString(36).substr(2, 9);
-        console.log(" [MOCK] Adding face to list:", faceListId, "ID:", mockPersistedId);
-        return mockPersistedId;
-    }
-
-    try {
-        const result = await client.faceList.addFaceFromUrl(faceListId, imageUrl, { userData: JSON.stringify(userData) });
-        return result.persistedFaceId;
-    } catch (error) {
-        console.error("Error adding face to list:", error);
-        throw error;
-    }
+module.exports = {
+    detectAndExtractDescriptors,
+    detectFaces,
+    compareFaces,
+    loadModels
 };
-
-const findSimilarFaces = async (faceId, faceListId) => {
-    if (useMock) {
-        console.log(" [MOCK] Finding similar faces for:", faceId);
-        return [{
-            persistedFaceId: "mock-persisted-match",
-            confidence: 0.95
-        }];
-    }
-
-    try {
-        const similarFaces = await client.face.findSimilar(faceId, {
-            faceListId: faceListId,
-            maxNumOfCandidatesReturned: 50,
-            mode: "matchFace"
-        });
-        return similarFaces;
-    } catch (error) {
-        console.error("Error finding similar faces:", error);
-        throw error;
-    }
-};
-
-module.exports = { detectFaces, createFaceList, addFaceToList, findSimilarFaces };
 

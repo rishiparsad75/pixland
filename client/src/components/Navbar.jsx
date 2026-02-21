@@ -50,8 +50,9 @@ const Navbar = () => {
                         <>
                             {navLinks.map((link) => (
                                 <Link
-                                    key={link.path}
+                                    key={`${link.name}-${link.path}`}
                                     to={link.path}
+
                                     className={`flex items-center gap-2 text-sm font-medium transition-colors ${location.pathname === link.path
                                         ? "text-white"
                                         : "text-gray-400 hover:text-white"
@@ -155,8 +156,9 @@ const Navbar = () => {
                                     </Link>
                                     {navLinks.map((link) => (
                                         <Link
-                                            key={link.path}
+                                            key={`${link.name}-${link.path}`}
                                             to={link.path}
+
                                             onClick={() => setMobileMenuOpen(false)}
                                             className="flex items-center gap-3 text-gray-300 hover:text-white py-2"
                                         >

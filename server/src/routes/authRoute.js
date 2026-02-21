@@ -410,5 +410,45 @@ router.post("/send-registration-otp", async (req, res) => {
     }
 });
 
+// @desc    Track image download and enforce limits
+// @route   POST /api/users/track-download
+// @access  Private
+router.post("/track-download", protect, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        // If user is premium, no need to check limits
+        if (user.subscription?.plan === 'premium' && user.subscription?.status === 'active') {
+            return res.status(200).json({ success: true, message: "Unlimited downloads for premium users" });
+        }
+
+        // Check monthly limit for free users
+        const monthlyLimit = user.usage?.downloads?.monthlyLimit || 10;
+        const currentCount = user.usage?.downloads?.count || 0;
+
+        if (currentCount >= monthlyLimit) {
+            return res.status(403).json({
+                message: "Monthly download limit reached",
+                limit: monthlyLimit,
+                count: currentCount
+            });
+        }
+
+        // Increment count
+        user.usage.downloads.count += 1;
+        await user.save();
+
+        res.status(200).json({
+            success: true,
+            message: "Download tracked",
+            remaining: monthlyLimit - user.usage.downloads.count
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
 module.exports = router;
+
 

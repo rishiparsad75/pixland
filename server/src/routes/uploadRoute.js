@@ -4,17 +4,16 @@ const { uploadToBlob } = require("../services/blobService");
 const { protect, photographer } = require("../middleware/authMiddleware");
 const Image = require("../models/Image");
 const Event = require("../models/Event");
-const { detectFaces, addFaceToList, createFaceList } = require("../services/faceService");
+const { detectAndExtractDescriptors } = require("../services/faceService");
+
 
 const router = express.Router();
-const FACE_LIST_ID = "pixland_global_list";
+
 
 const upload = multer({
   storage: multer.memoryStorage(),
 });
 
-// Initialize FaceList
-createFaceList(FACE_LIST_ID).catch(console.error);
 
 router.post("/", protect, photographer, upload.array("images", 50), async (req, res) => {
   try {
@@ -27,45 +26,58 @@ router.post("/", protect, photographer, upload.array("images", 50), async (req, 
       return res.status(400).json({ error: "No files uploaded" });
     }
 
+    // ─── Upload Quota Check ───
+    const User = require("../models/User");
+    const uploader = await User.findById(req.user._id);
+    const isPro = uploader?.subscription?.plan === 'premium' && uploader?.subscription?.status === 'active';
+
+    if (!isPro) {
+      const uploadLimit = uploader?.usage?.uploads?.monthlyLimit || 100;
+      const currentUploads = uploader?.usage?.uploads?.count || 0;
+      const spaceLeft = uploadLimit - currentUploads;
+
+      if (spaceLeft <= 0) {
+        return res.status(403).json({ error: `Monthly upload limit reached (${uploadLimit} uploads/month). Upgrade to Pro for unlimited uploads.` });
+      }
+
+      // Trim files if they exceed remaining quota
+      if (req.files.length > spaceLeft) {
+        req.files = req.files.slice(0, spaceLeft);
+      }
+
+      // Increment count
+      await User.findByIdAndUpdate(req.user._id, { $inc: { "usage.uploads.count": req.files.length } });
+    }
+
     const uploadPromises = req.files.map(async (file) => {
       // 1. Upload to Blob Storage
       const imageUrl = await uploadToBlob(file);
 
-      // 2. Detect Faces
-      let detectedFaces = [];
+      // 2. Detect & Extract Face Descriptors
       let faceDetails = [];
       try {
-        detectedFaces = await detectFaces(imageUrl);
-
-        // 3. Add to Global Face List for future searching
-        for (const face of detectedFaces) {
-          const persistedFaceId = await addFaceToList(FACE_LIST_ID, imageUrl, {
-            originalName: file.originalname,
-            imageUrl: imageUrl
-          });
-          faceDetails.push({
-            faceId: face.faceId,
-            persistedFaceId: persistedFaceId,
-            faceRectangle: face.faceRectangle
-          });
-        }
+        // Pass the buffer instead of URL to avoid canvas fetching issues
+        const results = await detectAndExtractDescriptors(file.buffer);
+        faceDetails = results.map(r => ({
+          descriptor: r.descriptor,
+          faceRectangle: r.faceRectangle
+        }));
       } catch (faceError) {
-        console.error(`Face detection/indexing failed for ${file.originalname}:`, faceError);
+
+        console.error(`Face extraction failed for ${file.originalname}:`, faceError);
       }
 
-      // 4. Save to Database
+      // 3. Save to Database
       return await Image.create({
-        user: req.user._id, // Uploader (Photographer)
+        user: req.user._id,
         event: eventId,
         url: imageUrl,
         blobName: file.originalname,
         metadata: {
-          detectedFaces: faceDetails.length > 0 ? faceDetails : detectedFaces.map(f => ({
-            faceId: f.faceId,
-            faceRectangle: f.faceRectangle
-          }))
+          detectedFaces: faceDetails
         }
       });
+
     });
 
     const results = await Promise.all(uploadPromises);

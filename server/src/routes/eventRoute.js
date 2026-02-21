@@ -3,7 +3,20 @@ const router = express.Router();
 const Event = require("../models/Event");
 const { protect, photographer, superAdmin } = require("../middleware/authMiddleware");
 
+// Get all active events (Public)
+router.get("/list", async (req, res) => {
+    try {
+        const events = await Event.find({ isActive: true })
+            .populate("photographer", "name")
+            .sort({ createdAt: -1 });
+        res.json(events);
+    } catch (error) {
+        res.status(500).json({ message: "Error fetching events" });
+    }
+});
+
 // Create a new event (Photographer or Admin)
+
 router.post("/", protect, photographer, async (req, res) => {
     try {
         const { name, location, expiryDate } = req.body;

@@ -17,6 +17,7 @@ const Pricing = () => {
     const [screenshot, setScreenshot] = useState(null);
     const [screenshotPreview, setScreenshotPreview] = useState(null);
     const [pendingRequest, setPendingRequest] = useState(null);
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
 
     useEffect(() => {
         fetchSubscriptionStatus();
@@ -25,7 +26,7 @@ const Pricing = () => {
 
     const fetchSubscriptionStatus = async () => {
         try {
-            const { data } = await api.get('/subscription/status');
+            const { data } = await api.get('/api/subscription/status');
             setSubscription(data);
         } catch (error) {
             console.error('Error fetching subscription:', error);
@@ -36,10 +37,11 @@ const Pricing = () => {
 
     const fetchPendingRequest = async () => {
         try {
-            // Find if user has a pending request
-            const { data } = await api.get('/subscription/admin/requests');
-            const myRequest = data.find(r => r.user._id === user._id && r.status === 'pending');
+            // Fetch only user's requests
+            const { data } = await api.get('/api/subscription/my-requests');
+            const myRequest = data.find(r => r.status === 'pending');
             setPendingRequest(myRequest);
+
         } catch (error) {
             console.error('Error fetching requests:', error);
         }
@@ -73,17 +75,18 @@ const Pricing = () => {
         formData.append("amount", isPhotographer ? 999 : 499);
 
         try {
-            await api.post("/subscription/request", formData, {
+            await api.post("/api/subscription/request", formData, {
                 headers: { "Content-Type": "multipart/form-data" }
             });
-            alert("Payment proof submitted! Admin will verify and activate your premium status shortly.");
             setShowPaymentModal(false);
+            setShowSuccessModal(true);
             fetchPendingRequest();
         } catch (error) {
             alert(error.response?.data?.message || "Failed to submit request");
         } finally {
             setUpgrading(false);
         }
+
     };
 
     const isPhotographer = user?.role === 'photographer';
@@ -301,152 +304,188 @@ const Pricing = () => {
 
             {/* Payment Modal */}
             <AnimatePresence>
-                {showPaymentModal && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="absolute inset-0 bg-black/60 backdrop-blur-md"
-                            onClick={() => setShowPaymentModal(false)}
-                        />
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.9, y: 30 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.9, y: 30 }}
-                            className="relative w-full max-w-xl bg-slate-900/90 border border-white/10 rounded-[2.5rem] p-10 shadow-3xl overflow-hidden backdrop-blur-2xl"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            {/* Decorative Blur */}
-                            <div className="absolute -top-24 -right-24 w-48 h-48 bg-purple-500/20 blur-3xl rounded-full" />
-                            <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-pink-500/20 blur-3xl rounded-full" />
+                {/* Premium Payment Modal */}
+                <AnimatePresence>
+                    {showPaymentModal && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="absolute inset-0 bg-black/80 backdrop-blur-xl"
+                                onClick={() => setShowPaymentModal(false)}
+                            />
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.9, y: 40, rotateX: 15 }}
+                                animate={{ opacity: 1, scale: 1, y: 0, rotateX: 0 }}
+                                exit={{ opacity: 0, scale: 0.9, y: 40, rotateX: -15 }}
+                                transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                                className="relative w-full max-w-2xl bg-slate-900/90 border border-white/10 rounded-[3rem] p-4 shadow-[0_0_50px_rgba(139,92,246,0.3)] overflow-hidden backdrop-blur-2xl"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                {/* Decorative Elements */}
+                                <div className="absolute -top-24 -right-24 w-64 h-64 bg-purple-600/30 blur-[100px] rounded-full animate-pulse" />
+                                <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-pink-600/30 blur-[100px] rounded-full animate-pulse" />
 
-                            <div className="relative z-10">
-                                <div className="flex justify-between items-center mb-8">
-                                    <div>
-                                        <h2 className="text-3xl font-bold text-white mb-1">Go Premium</h2>
-                                        <p className="text-purple-300/80 text-sm">Follow the steps below to activate your plan</p>
+                                <div className="relative z-10 bg-slate-950/50 rounded-[2.5rem] p-8 md:p-12 border border-white/5">
+                                    <div className="flex justify-between items-start mb-10">
+                                        <div>
+                                            <div className="inline-flex items-center gap-2 px-3 py-1 bg-purple-500/10 border border-purple-500/20 rounded-full mb-3">
+                                                <Crown size={14} className="text-purple-400" />
+                                                <span className="text-[10px] font-bold text-purple-300 uppercase tracking-widest">Premium Activation</span>
+                                            </div>
+                                            <h2 className="text-4xl font-black text-white leading-tight">Elevate Your <br /><span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">Experience</span></h2>
+                                        </div>
+                                        <button
+                                            onClick={() => setShowPaymentModal(false)}
+                                            className="p-3 bg-white/5 hover:bg-red-500/20 rounded-2xl transition-all text-gray-500 hover:text-red-400 group"
+                                        >
+                                            <X size={20} className="group-hover:rotate-90 transition-transform duration-300" />
+                                        </button>
                                     </div>
-                                    <button
-                                        onClick={() => setShowPaymentModal(false)}
-                                        className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors text-gray-400 hover:text-white"
-                                    >
-                                        <X size={24} />
-                                    </button>
-                                </div>
 
-                                <div className="grid md:grid-cols-2 gap-8 mb-8">
-                                    {/* Left: QR Section */}
-                                    <div className="space-y-4">
-                                        <div className="relative group">
-                                            <div className="absolute -inset-1 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
-                                            <div className="relative bg-white p-3 rounded-2xl shadow-2xl flex items-center justify-center overflow-hidden">
-                                                <img
-                                                    src="/payment_qr.jpg"
-                                                    alt="UPI QR Code"
-                                                    className="w-full aspect-square object-contain rounded-lg"
+                                    <div className="grid md:grid-cols-1 gap-12 mb-10">
+                                        {/* Centered Large QR Section */}
+                                        <div className="flex flex-col items-center justify-center">
+                                            <motion.div
+                                                whileHover={{ scale: 1.02 }}
+                                                className="relative p-2 bg-gradient-to-br from-purple-500 via-pink-500 to-blue-500 rounded-3xl shadow-2xl"
+                                            >
+                                                <div className="relative bg-white p-4 rounded-[1.4rem] shadow-inner overflow-hidden">
+                                                    <img
+                                                        src="/payment_qr.jpg"
+                                                        alt="UPI QR Code"
+                                                        className="w-64 h-64 md:w-80 md:h-80 object-contain rounded-lg"
+                                                    />
+                                                    <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/5 to-transparent pointer-events-none" />
+                                                </div>
+
+                                                {/* Scan Lines Animation */}
+                                                <motion.div
+                                                    animate={{ top: ["10%", "90%", "10%"] }}
+                                                    transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+                                                    className="absolute left-4 right-4 h-0.5 bg-gradient-to-r from-transparent via-purple-400 to-transparent blur-sm z-20 pointer-events-none"
+                                                />
+                                            </motion.div>
+
+                                            <div className="mt-8 text-center bg-white/5 backdrop-blur-md rounded-2xl px-8 py-4 border border-white/10">
+                                                <p className="text-[10px] text-gray-500 uppercase tracking-widest font-black mb-1">Payable Amount</p>
+                                                <p className="text-4xl font-black text-white">₹{isPhotographer ? '999' : '499'}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <form onSubmit={handleSubmitRequest} className="space-y-6">
+                                        <div className="grid md:grid-cols-2 gap-6">
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">UTR Reference</label>
+                                                <input
+                                                    type="text"
+                                                    placeholder="12-digit UTR Number"
+                                                    value={utr}
+                                                    onChange={(e) => setUtr(e.target.value)}
+                                                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all font-mono"
+                                                    required
                                                 />
                                             </div>
-                                        </div>
-                                        <div className="text-center">
-                                            <p className="text-xs text-gray-400 uppercase tracking-widest font-bold mb-1">Scan & Pay</p>
-                                            <p className="text-xl font-bold text-white">₹{isPhotographer ? '999' : '499'}</p>
-                                        </div>
-                                    </div>
 
-                                    {/* Right: Info/Upload */}
-                                    <div className="flex flex-col justify-center space-y-4">
-                                        <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
-                                            <p className="text-xs text-gray-400 mb-2 uppercase font-bold tracking-tight">Payment Details</p>
                                             <div className="space-y-2">
-                                                <div className="flex justify-between text-sm">
-                                                    <span className="text-gray-400">Merchant</span>
-                                                    <span className="text-white font-medium">PixLand AI</span>
-                                                </div>
-                                                <div className="flex justify-between text-sm">
-                                                    <span className="text-gray-400">Plan</span>
-                                                    <span className="text-white font-medium">Premium (30 Days)</span>
-                                                </div>
+                                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Proof of Transfer</label>
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    onChange={handleFileChange}
+                                                    className="hidden"
+                                                    id="payment-upload"
+                                                    required
+                                                />
+                                                <label
+                                                    htmlFor="payment-upload"
+                                                    className={`flex items-center justify-between w-full h-[60px] px-6 bg-white/5 border-2 border-dashed rounded-2xl cursor-pointer transition-all hover:bg-white/10
+                                                    ${screenshotPreview ? 'border-purple-500/50' : 'border-white/10'}`}
+                                                >
+                                                    <span className="text-sm text-gray-400 truncate max-w-[150px]">
+                                                        {screenshot ? screenshot.name : "Upload Screenshot"}
+                                                    </span>
+                                                    <Upload size={18} className="text-purple-400" />
+                                                </label>
                                             </div>
                                         </div>
-                                        <p className="text-xs text-purple-300 leading-relaxed">
-                                            <Info size={12} className="inline mr-1" />
-                                            Please ensure the UTR number matches the screenshot for faster verification.
+
+                                        <Button
+                                            type="submit"
+                                            disabled={upgrading}
+                                            className="w-full py-6 rounded-[1.5rem] bg-gradient-to-r from-purple-600 to-pink-600 hover:scale-[1.02] active:scale-95 transition-all text-lg font-black tracking-tight"
+                                        >
+                                            {upgrading ? (
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                                                    Processing Request...
+                                                </div>
+                                            ) : 'Confirm Payment Submission'}
+                                        </Button>
+
+                                        <p className="text-center text-[10px] text-gray-500 uppercase tracking-tighter">
+                                            By clicking, you confirm the UTR belongs to the valid transaction.
                                         </p>
+                                    </form>
+                                </div>
+                            </motion.div>
+                        </div>
+                    )}
+                </AnimatePresence>
+
+                {/* Success Animation Modal */}
+                <AnimatePresence>
+                    {showSuccessModal && (
+                        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="absolute inset-0 bg-black/90 backdrop-blur-2xl"
+                            />
+                            <motion.div
+                                initial={{ scale: 0.8, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                exit={{ scale: 0.8, opacity: 0 }}
+                                className="relative w-full max-w-lg bg-slate-900 border border-purple-500/30 rounded-[3rem] p-12 text-center shadow-[0_0_100px_rgba(139,92,246,0.2)]"
+                            >
+                                <motion.div
+                                    initial={{ y: 20, opacity: 0 }}
+                                    animate={{ y: 0, opacity: 1 }}
+                                    transition={{ delay: 0.2 }}
+                                    className="w-24 h-24 bg-gradient-to-tr from-green-400 to-emerald-600 rounded-full flex items-center justify-center mx-auto mb-8 shadow-2xl shadow-green-500/40"
+                                >
+                                    <Check size={48} className="text-white" strokeWidth={3} />
+                                </motion.div>
+
+                                <h2 className="text-3xl font-black text-white mb-6 tracking-tight">Proof Submitted!</h2>
+
+                                <div className="space-y-6 text-gray-300">
+                                    <p className="text-lg leading-relaxed">
+                                        Wait <span className="text-purple-400 font-bold italic">24 hours</span>. Our admin will verify the details and grant you premium access.
+                                    </p>
+
+                                    <div className="p-6 bg-white/5 border border-white/10 rounded-2xl">
+                                        <p className="text-sm text-gray-400 mb-2 uppercase tracking-widest font-bold">Need Help?</p>
+                                        <a href="mailto:pixland123@gmail.com" className="text-xl font-bold text-white hover:text-purple-400 transition-colors">
+                                            pixland123@gmail.com
+                                        </a>
                                     </div>
                                 </div>
 
-                                <form onSubmit={handleSubmitRequest} className="space-y-6">
-                                    <div className="space-y-4">
-                                        <div className="relative">
-                                            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 block ml-1">UTR Number</label>
-                                            <input
-                                                type="text"
-                                                placeholder="Enter 12-digit UTR No. (e.g. 1234...)"
-                                                value={utr}
-                                                onChange={(e) => setUtr(e.target.value)}
-                                                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                                                required
-                                            />
-                                        </div>
+                                <Button
+                                    onClick={() => setShowSuccessModal(false)}
+                                    className="mt-10 w-full py-5 rounded-2xl bg-white text-black hover:bg-gray-200 font-black"
+                                >
+                                    Got it, thanks!
+                                </Button>
+                            </motion.div>
+                        </div>
+                    )}
+                </AnimatePresence>
 
-                                        <div className="relative">
-                                            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 block ml-1">Proof of Payment</label>
-                                            <input
-                                                type="file"
-                                                accept="image/*"
-                                                onChange={handleFileChange}
-                                                className="hidden"
-                                                id="payment-upload"
-                                                required
-                                            />
-                                            <label
-                                                htmlFor="payment-upload"
-                                                className={`group relative flex flex-col items-center justify-center gap-3 w-full min-h-[140px] border-2 border-dashed rounded-3xl cursor-pointer transition-all overflow-hidden
-                                                    ${screenshotPreview
-                                                        ? 'border-purple-500/50 bg-purple-500/5'
-                                                        : 'border-white/10 bg-white/5 hover:border-purple-500/30 hover:bg-white/[0.07]'
-                                                    }`}
-                                            >
-                                                {screenshotPreview ? (
-                                                    <div className="relative w-full h-full p-2 flex items-center justify-center">
-                                                        <img src={screenshotPreview} alt="Preview" className="max-h-32 rounded-xl object-contain shadow-2xl" />
-                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded-xl font-bold text-sm text-white backdrop-blur-sm">
-                                                            Change File
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                    <>
-                                                        <div className="p-3 bg-purple-500/10 rounded-2xl text-purple-400">
-                                                            <Upload size={24} />
-                                                        </div>
-                                                        <div className="text-center">
-                                                            <span className="block text-sm font-bold text-white">Drop screenshot here</span>
-                                                            <span className="text-xs text-gray-400">PNG, JPG or PDF up to 5MB</span>
-                                                        </div>
-                                                    </>
-                                                )}
-                                            </label>
-                                        </div>
-                                    </div>
-
-                                    <Button
-                                        type="submit"
-                                        disabled={upgrading}
-                                        className="w-full py-5 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-lg font-bold shadow-2xl shadow-purple-500/20 transform transition-all active:scale-[0.98] disabled:opacity-50"
-                                    >
-                                        {upgrading ? (
-                                            <span className="flex items-center justify-center gap-2">
-                                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                                Processing...
-                                            </span>
-                                        ) : 'Submit Verification Request'}
-                                    </Button>
-                                </form>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
             </AnimatePresence>
         </div>
     );

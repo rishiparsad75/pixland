@@ -28,6 +28,7 @@ const imageSchema = mongoose.Schema(
                 {
                     faceId: String,
                     persistedFaceId: String,
+                    descriptor: [Number],
                     faceRectangle: {
                         top: Number,
                         left: Number,
@@ -35,6 +36,7 @@ const imageSchema = mongoose.Schema(
                         height: Number
                     }
                 }
+
             ]
         }
     },

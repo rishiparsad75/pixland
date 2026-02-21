@@ -18,7 +18,7 @@ const ManageSubscriptions = () => {
 
     const fetchRequests = async () => {
         try {
-            const { data } = await api.get('/subscription/admin/requests');
+            const { data } = await api.get('/api/subscription/admin/requests');
             setRequests(data);
         } catch (error) {
             console.error('Error fetching requests:', error);
@@ -33,7 +33,7 @@ const ManageSubscriptions = () => {
 
         setProcessingId(requestId);
         try {
-            await api.post('/subscription/admin/verify', { requestId, status, adminNotes });
+            await api.post('/api/subscription/admin/verify', { requestId, status, adminNotes });
             alert(`Request ${status} successfully!`);
             fetchRequests();
         } catch (error) {
