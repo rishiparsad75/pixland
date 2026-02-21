@@ -5,85 +5,18 @@ try {
     dns.setServers(['8.8.8.8', '8.8.4.4']);
     console.log("[Setup] DNS servers set to Google Public DNS.");
 } catch (err) {
-    console.warn("[Setup] Warning: Could not set custom DNS servers. This is expected in some cloud environments.", err.message);
+    console.warn("[Setup] Warning: Could not set custom DNS servers.", err.message);
 }
-
-const User = require("./src/models/User");
-const runMigrations = async () => {
-    try {
-        const result = await User.updateMany(
-            { role: "photographer", status: "pending" },
-            { $set: { status: "active" } }
-        );
-        if (result.modifiedCount > 0) {
-            console.log(`[Migration] Activated ${result.modifiedCount} pending photographers.`);
-        }
-    } catch (err) {
-        console.error("[Migration] Error:", err);
-    }
-};
-
-const connectDB = require("./src/config/db");
-connectDB().then(() => {
-    runMigrations();
-});
 
 const express = require("express");
 const cors = require("cors");
-
-const uploadRoute = require("./src/routes/uploadRoute");
-const authRoute = require("./src/routes/authRoute");
-const imageRoute = require("./src/routes/imageRoute");
-const albumRoute = require("./src/routes/albumRoute");
-const faceRoute = require("./src/routes/faceRoute");
-
-const eventRoute = require("./src/routes/eventRoute");
-const analyticsRoute = require("./src/routes/analyticsRoute");
-const subscriptionRoute = require("./src/routes/subscriptionRoute");
-
 const http = require("http");
 const { Server } = require("socket.io");
 
 const app = express();
 const server = http.createServer(app);
 
-const io = new Server(server, {
-    cors: {
-        origin: process.env.NODE_ENV === 'production'
-            ? [
-                process.env.FRONTEND_URL,
-                "https://www.pixland.tech",
-                "https://pixland.tech",
-                "http://www.pixland.tech",
-                "http://pixland.tech",
-                "https://zealous-plant-0e819f000.6.azurestaticapps.net",
-                "https://pixland-frontend.azurewebsites.net",
-                "https://pixland-api-rishi-g9f8dbczb4f8cscc.centralindia-01.azurewebsites.net",
-                "https://pixland-api-rishi-g9f0dpezb4f0cscc.centralindia-01.azurewebsites.net"
-            ]
-            : "*",
-        methods: ["GET", "POST"]
-    }
-});
-
-
-// Store io instance in app to access in routes
-app.set("io", io);
-
-io.on("connection", (socket) => {
-    console.log("New client connected:", socket.id);
-
-    socket.on("join_room", (roomId) => {
-        socket.join(roomId);
-        console.log(`Socket ${socket.id} joined room ${roomId}`);
-    });
-
-    socket.on("disconnect", () => {
-        console.log("Client disconnected:", socket.id);
-    });
-});
-
-// CORS configuration for Express
+// CORS configuration
 const corsOptions = {
     origin: process.env.NODE_ENV === 'production'
         ? [
@@ -104,23 +37,78 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
-app.get("/", (req, res) => {
-    res.send("PixLand Backend Running");
+// Health check endpoints (registered FIRST so Azure probe works immediately)
+app.get("/", (req, res) => res.send("PixLand Backend Running"));
+app.get("/api/health", (req, res) => res.json({ status: "ok", time: new Date() }));
+
+// Socket.IO
+const io = new Server(server, {
+    cors: {
+        origin: process.env.NODE_ENV === 'production'
+            ? [
+                process.env.FRONTEND_URL,
+                "https://www.pixland.tech",
+                "https://pixland.tech",
+                "https://zealous-plant-0e819f000.6.azurestaticapps.net",
+            ]
+            : "*",
+        methods: ["GET", "POST"]
+    }
 });
 
-app.get("/api/health", (req, res) => {
-    res.json({ status: "ok", time: new Date() });
+app.set("io", io);
+
+io.on("connection", (socket) => {
+    console.log("New client connected:", socket.id);
+    socket.on("join_room", (roomId) => {
+        socket.join(roomId);
+        console.log(`Socket ${socket.id} joined room ${roomId}`);
+    });
+    socket.on("disconnect", () => {
+        console.log("Client disconnected:", socket.id);
+    });
 });
 
-app.use("/api/upload", uploadRoute);
-app.use("/api/users", authRoute);
-app.use("/api/images", imageRoute);
-app.use("/api/albums", albumRoute);
-app.use("/api/face", faceRoute);
-app.use("/api/events", eventRoute);
-app.use("/api/analytics", analyticsRoute);
-app.use("/api/subscription", subscriptionRoute);
+// Load routes with individual error handling
+const loadRoute = (path, routeFile) => {
+    try {
+        const route = require(routeFile);
+        app.use(path, route);
+        console.log(`[Routes] Loaded: ${path}`);
+    } catch (err) {
+        console.error(`[Routes] FAILED to load ${path}:`, err.message);
+    }
+};
 
+loadRoute("/api/upload", "./src/routes/uploadRoute");
+loadRoute("/api/users", "./src/routes/authRoute");
+loadRoute("/api/images", "./src/routes/imageRoute");
+loadRoute("/api/albums", "./src/routes/albumRoute");
+loadRoute("/api/face", "./src/routes/faceRoute");
+loadRoute("/api/events", "./src/routes/eventRoute");
+loadRoute("/api/analytics", "./src/routes/analyticsRoute");
+loadRoute("/api/subscription", "./src/routes/subscriptionRoute");
+
+// Connect to MongoDB (non-blocking)
+const connectDB = require("./src/config/db");
+connectDB().then(async () => {
+    console.log("[DB] Connected to MongoDB.");
+    try {
+        const User = require("./src/models/User");
+        const result = await User.updateMany(
+            { role: "photographer", status: "pending" },
+            { $set: { status: "active" } }
+        );
+        if (result.modifiedCount > 0) {
+            console.log(`[Migration] Activated ${result.modifiedCount} pending photographers.`);
+        }
+    } catch (err) {
+        console.error("[Migration] Error:", err.message);
+    }
+}).catch(err => {
+    console.error("[DB] MongoDB connection failed:", err.message);
+    // Don't exit — server still runs, routes will fail gracefully
+});
 
 const PORT = process.env.PORT || 5000;
 
