@@ -5,11 +5,12 @@ const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
 const containerName = process.env.AZURE_STORAGE_CONTAINER;
 
 if (!connectionString) {
-  throw new Error("Azure Storage connection string missing in .env");
+  console.warn("[BlobService] WARNING: Azure Storage connection string missing. Blob operations will fail.");
 }
 
-const blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
-const containerClient = blobServiceClient.getContainerClient(containerName);
+const blobServiceClient = connectionString ? BlobServiceClient.fromConnectionString(connectionString) : null;
+const containerClient = connectionString ? blobServiceClient.getContainerClient(containerName) : null;
+
 
 // Extract account name and key from connection string for SAS generation
 function getStorageCredentials() {
