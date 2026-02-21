@@ -35,9 +35,7 @@ const Navbar = () => {
             <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
                 {/* Logo */}
                 <Link to="/" className="flex items-center gap-2 group">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30 group-hover:shadow-indigo-500/50 transition-all">
-                        <Camera size={18} />
-                    </div>
+                    <img src="/logo.svg" alt="PixLand Logo" className="w-8 h-8 rounded-lg shadow-lg shadow-indigo-500/30 group-hover:shadow-indigo-500/50 transition-all" />
                     <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
                         PixLand<span className="text-indigo-400">.ai</span>
                         <span className="ml-2 text-xs text-gray-400 font-semibold uppercase tracking-wider opacity-100">by Rishi Parsad</span>
