@@ -273,6 +273,29 @@ router.post("/register-mobile", async (req, res) => {
 });
 
 
+// Helper to check and reset monthly limits
+const checkAndResetLimits = async (user) => {
+    if (!user.usage) return user;
+
+    const now = new Date();
+    const lastDownloadReset = new Date(user.usage.downloads.lastReset || Date.now());
+
+    if (now.getMonth() !== lastDownloadReset.getMonth() || now.getFullYear() !== lastDownloadReset.getFullYear()) {
+        user.usage.downloads.count = 0;
+        user.usage.downloads.lastReset = now;
+
+        // Also reset uploads for photographers
+        if (user.usage.uploads) {
+            user.usage.uploads.count = 0;
+            user.usage.uploads.lastReset = now;
+        }
+
+        await user.save();
+        console.log(`[Usage] Monthly limits reset for ${user.email}`);
+    }
+    return user;
+};
+
 // Super Admin: Get all photographers
 router.get("/photographers", protect, superAdmin, async (req, res) => {
     try {
@@ -286,7 +309,12 @@ router.get("/photographers", protect, superAdmin, async (req, res) => {
 // Get current user information
 router.get("/me", protect, async (req, res) => {
     try {
-        const user = await User.findById(req.user.id).select("-password");
+        let user = await User.findById(req.user.id).select("-password");
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        // Auto-reset monthly limits if needed
+        user = await checkAndResetLimits(user);
+
         res.json(user);
     } catch (error) {
         res.status(500).json({ message: "Server error" });
@@ -410,40 +438,79 @@ router.post("/send-registration-otp", async (req, res) => {
     }
 });
 
-// @desc    Track image download and enforce limits
-// @route   POST /api/users/track-download
-// @access  Private
-router.post("/track-download", protect, async (req, res) => {
+// @desc    Forgot Password - Send OTP to email
+// @route   POST /api/auth/forgot-password
+// @access  Public
+router.post("/forgot-password", async (req, res) => {
+    const { email } = req.body;
+
+    if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+    }
+
     try {
-        const user = await User.findById(req.user.id);
-        if (!user) return res.status(404).json({ message: "User not found" });
-
-        // If user is premium, no need to check limits
-        if (user.subscription?.plan === 'premium' && user.subscription?.status === 'active') {
-            return res.status(200).json({ success: true, message: "Unlimited downloads for premium users" });
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
         }
 
-        // Check monthly limit for free users
-        const monthlyLimit = user.usage?.downloads?.monthlyLimit || 10;
-        const currentCount = user.usage?.downloads?.count || 0;
+        // Generate 6-digit OTP
+        const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
 
-        if (currentCount >= monthlyLimit) {
-            return res.status(403).json({
-                message: "Monthly download limit reached",
-                limit: monthlyLimit,
-                count: currentCount
-            });
+        // Save to DB (reusing OTP model)
+        await OTP.findOneAndUpdate(
+            { mobile: email },
+            { pinId: otpCode },
+            { upsert: true, new: true }
+        );
+
+        // Send Email
+        const sent = await sendEmailOTP(email, otpCode);
+        if (sent) {
+            res.status(200).json({ message: "Password reset code sent to your email" });
+        } else {
+            res.status(500).json({ message: "Failed to send email. Check fallback logs." });
+        }
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// @desc    Reset Password
+// @route   POST /api/auth/reset-password
+// @access  Public
+router.post("/reset-password", async (req, res) => {
+    const { email, otp, password } = req.body;
+
+    if (!email || !otp || !password) {
+        return res.status(400).json({ message: "Email, OTP, and new password are required" });
+    }
+
+    try {
+        // Find user
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
         }
 
-        // Increment count
-        user.usage.downloads.count += 1;
+        // Verify OTP
+        const otpRecord = await OTP.findOne({ mobile: email });
+        if (!otpRecord) {
+            return res.status(400).json({ message: "OTP not found or expired" });
+        }
+
+        if (otpRecord.pinId.toString().trim() !== otp.toString().trim()) {
+            return res.status(400).json({ message: "Invalid OTP code" });
+        }
+
+        // OTP is valid, update password
+        user.password = password; // mongoose pre-save will hash it
         await user.save();
 
-        res.status(200).json({
-            success: true,
-            message: "Download tracked",
-            remaining: monthlyLimit - user.usage.downloads.count
-        });
+        // Delete OTP
+        await OTP.deleteOne({ _id: otpRecord._id });
+
+        res.status(200).json({ message: "Password reset successful" });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

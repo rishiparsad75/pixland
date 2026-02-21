@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../../api/axios";
 import Card from "../../components/ui/Card";
 import { Image as ImageIcon, MapPin, Calendar, Camera, Globe, Search, Trash2 } from "lucide-react";
 import { motion } from "framer-motion";
 
 const EventMonitor = () => {
+    const navigate = useNavigate();
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
@@ -73,7 +75,11 @@ const EventMonitor = () => {
             ) : filteredEvents.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 text-white">
                     {filteredEvents.map((event) => (
-                        <Card key={event._id} className="group hover:border-indigo-500/50 transition-all duration-300 bg-white/5 backdrop-blur-xl border-white/10 p-0 overflow-hidden flex flex-col h-full relative">
+                        <Card
+                            key={event._id}
+                            onClick={() => navigate(`/admin/event/${event._id}`)}
+                            className="group hover:border-indigo-500/50 transition-all duration-300 bg-white/5 backdrop-blur-xl border-white/10 p-0 overflow-hidden flex flex-col h-full relative cursor-pointer"
+                        >
                             {/* Delete Button Overlay */}
                             <div className="absolute top-4 right-4 z-20 flex gap-2">
                                 <button

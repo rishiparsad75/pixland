@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../../api/axios";
 import Card from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
@@ -7,6 +8,7 @@ import QRCode from "react-qr-code";
 import { motion, AnimatePresence } from "framer-motion";
 
 const PhotographerDashboard = () => {
+    const navigate = useNavigate();
     const [events, setEvents] = useState([]);
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -45,7 +47,8 @@ const PhotographerDashboard = () => {
         }
     };
 
-    const handleDeleteEvent = async (id) => {
+    const handleDeleteEvent = async (id, e) => {
+        if (e) e.stopPropagation();
         if (!window.confirm("Are you sure you want to delete this event? All associated photos will also be deleted.")) return;
         setDeleteLoading(id);
         try {
@@ -113,7 +116,11 @@ const PhotographerDashboard = () => {
             {/* Event List */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {events.map((event) => (
-                    <Card key={event._id} className="group hover:border-indigo-500/50 transition-all p-6">
+                    <Card
+                        key={event._id}
+                        onClick={() => navigate(`/photographer/event/${event._id}`)}
+                        className="group hover:border-indigo-500/50 transition-all p-6 cursor-pointer"
+                    >
                         <div className="flex gap-6">
                             <div className="p-4 bg-white rounded-xl shadow-lg border border-white/10 shrink-0">
                                 <QRCode value={`http://localhost:5181/event/${event.qrToken}`} size={80} />
@@ -124,7 +131,7 @@ const PhotographerDashboard = () => {
                                         {event.name}
                                     </h3>
                                     <button
-                                        onClick={() => handleDeleteEvent(event._id)}
+                                        onClick={(e) => handleDeleteEvent(event._id, e)}
                                         disabled={deleteLoading === event._id}
                                         className="text-gray-500 hover:text-red-500 p-1.5 hover:bg-red-500/10 rounded-lg transition-colors"
                                     >

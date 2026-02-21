@@ -186,6 +186,11 @@ const Login = () => {
                                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                                 </button>
                             </motion.div>
+                            <div className="flex justify-end mt-[-8px]">
+                                <Link to="/forgot-password" size="sm" className="text-xs text-indigo-600 hover:underline font-bold">
+                                    Forgot Password?
+                                </Link>
+                            </div>
                             <motion.button
                                 whileHover={{ scale: 1.01 }}
                                 whileTap={{ scale: 0.99 }}

@@ -3,15 +3,48 @@ import { useNavigate } from "react-router-dom";
 import AuthContext from "../context/AuthContext";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
-import { User, Mail, HardDrive, Key, Crown, Check, Share2, Download, Zap, X } from "lucide-react";
+import { User, Mail, HardDrive, Key, Crown, Check, Share2, Download, Zap, X, Shield, BarChart3 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import api from "../api/axios";
+import { useEffect } from "react";
 
 
 const Profile = () => {
-    const { user, logout } = useContext(AuthContext);
+    const { user, login, logout } = useContext(AuthContext);
     const navigate = useNavigate();
     const [showSubscription, setShowSubscription] = useState(false);
     const [copied, setCopied] = useState(false);
+    const [stats, setStats] = useState(null);
+    const [systemStats, setSystemStats] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchStats = async () => {
+            try {
+                // Fetch latest user info (including usage)
+                const userRes = await api.get("/api/users/me");
+                setStats(userRes.data);
+
+                // Update local storage and context while PRESERVING the token
+                const currentUser = JSON.parse(localStorage.getItem("user"));
+                login({ ...userRes.data, token: currentUser?.token });
+
+                // If admin, fetch system-wide storage stats
+                if (user.role === 'super-admin') {
+                    const sysRes = await api.get("/api/analytics/system");
+                    setSystemStats(sysRes.data);
+                }
+            } catch (err) {
+                console.error("Failed to fetch profile stats", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchStats();
+    }, []);
+
+    const userData = stats || user;
 
 
     const shareLink = `${window.location.origin}/register?ref=${user._id}`;
@@ -93,22 +126,89 @@ const Profile = () => {
 
                     {/* Storage & Security */}
                     <div className="space-y-6">
-                        {user.role !== 'user' && (
-                            <Card>
-                                <div className="flex items-center gap-3 mb-4 text-white">
-                                    <HardDrive size={20} className="text-indigo-400" />
-                                    <h3 className="font-bold">Cloud Storage</h3>
-                                </div>
-                                <div className="mb-2 flex justify-between text-sm">
-                                    <span className="text-gray-400">Used Assets</span>
-                                    <span className="text-white font-medium">842 Photos / 5,000</span>
-                                </div>
-                                <div className="w-full bg-gray-800 rounded-full h-2 mb-4">
-                                    <div className="bg-indigo-500 h-2 rounded-full" style={{ width: '16.8%' }}></div>
-                                </div>
-                                <Button variant="outline" size="sm" className="w-full border-white/10 hover:bg-white/5">Manage Storage</Button>
-                            </Card>
-                        )}
+                        {/* Storage logic based on role */}
+                        <Card>
+                            <div className="flex items-center gap-3 mb-4 text-white">
+                                <HardDrive size={20} className="text-indigo-400" />
+                                <h3 className="font-bold">
+                                    {userData.role === 'super-admin' ? "System Storage" :
+                                        userData.role === 'photographer' ? "Cloud Storage" : "Download Limit"}
+                                </h3>
+                            </div>
+
+                            {userData.role === 'super-admin' ? (
+                                <>
+                                    <div className="mb-2 flex justify-between text-sm">
+                                        <span className="text-gray-400">Total Photos</span>
+                                        <span className="text-white font-medium">
+                                            {systemStats?.totalPhotos?.toLocaleString() || '...'} / 100,000
+                                        </span>
+                                    </div>
+                                    <div className="w-full bg-gray-800 rounded-full h-2 mb-4 overflow-hidden">
+                                        <motion.div
+                                            initial={{ width: 0 }}
+                                            animate={{ width: `${Math.min((systemStats?.totalPhotos || 0) / 100000 * 100, 100)}%` }}
+                                            className="bg-gradient-to-r from-red-500 to-orange-500 h-full rounded-full"
+                                        />
+                                    </div>
+                                    <p className="text-[10px] text-gray-500 uppercase font-bold tracking-tighter mb-4">Storage health: {100 - Math.min((systemStats?.totalPhotos || 0) / 100000 * 100, 100).toFixed(1)}% Free</p>
+                                    <Button variant="outline" size="sm" className="w-full border-white/10 hover:bg-white/5 flex gap-2" onClick={() => navigate('/admin/dashboard')}>
+                                        <BarChart3 size={14} /> Full Analytics
+                                    </Button>
+                                </>
+                            ) : userData.role === 'photographer' ? (
+                                <>
+                                    <div className="mb-2 flex justify-between text-sm">
+                                        <span className="text-gray-400">Used Assets</span>
+                                        <span className="text-white font-medium">
+                                            {userData.usage?.uploads?.count || 0} / {userData.usage?.uploads?.monthlyLimit || 500}
+                                        </span>
+                                    </div>
+                                    <div className="w-full bg-gray-800 rounded-full h-2 mb-4 overflow-hidden">
+                                        <motion.div
+                                            initial={{ width: 0 }}
+                                            animate={{ width: `${Math.min((userData.usage?.uploads?.count || 0) / (userData.usage?.uploads?.monthlyLimit || 500) * 100, 100)}%` }}
+                                            className="bg-indigo-500 h-full rounded-full"
+                                        />
+                                    </div>
+                                    <Button variant="outline" size="sm" className="w-full border-white/10 hover:bg-white/5 mb-3" onClick={() => navigate('/photographer/upload')}>Manage Storage</Button>
+                                    {userData.usage?.uploads?.count >= (userData.usage?.uploads?.monthlyLimit || 500) && (
+                                        <button
+                                            className="text-xs text-indigo-400 hover:text-indigo-300 font-bold flex items-center gap-1 mx-auto transition-colors"
+                                            onClick={() => navigate('/pricing')}
+                                        >
+                                            <Zap size={12} /> Buy subscription to increase limit
+                                        </button>
+                                    )}
+                                </>
+                            ) : (
+                                <>
+                                    <div className="mb-2 flex justify-between text-sm">
+                                        <span className="text-gray-400">Photos Downloaded</span>
+                                        <span className="text-white font-medium">
+                                            {userData.subscription?.plan === 'premium' ? '∞' : `${userData.usage?.downloads?.count || 0} / ${userData.usage?.downloads?.monthlyLimit || 10}`}
+                                        </span>
+                                    </div>
+                                    <div className="w-full bg-gray-800 rounded-full h-2 mb-4 overflow-hidden">
+                                        <motion.div
+                                            initial={{ width: 0 }}
+                                            animate={{ width: userData.subscription?.plan === 'premium' ? '100%' : `${Math.min((userData.usage?.downloads?.count || 0) / (userData.usage?.downloads?.monthlyLimit || 10) * 100, 100)}%` }}
+                                            className="bg-cyan-500 h-full rounded-full"
+                                        />
+                                    </div>
+                                    {userData.subscription?.plan !== 'premium' && (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="w-full border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10 flex gap-2 items-center justify-center font-bold"
+                                            onClick={() => setShowSubscription(true)}
+                                        >
+                                            <Zap size={14} /> Get Unlimited
+                                        </Button>
+                                    )}
+                                </>
+                            )}
+                        </Card>
 
                         <Card>
                             <div className="flex items-center gap-3 mb-4 text-white">
@@ -116,9 +216,9 @@ const Profile = () => {
                                 <h3 className="font-bold">Security</h3>
                             </div>
                             <p className="text-sm text-gray-400 mb-4">
-                                Keep your {user.role} credentials secure. Enable 2FA for extra protection.
+                                Keep your {userData.role} credentials secure. Reset your password if you think it's compromised.
                             </p>
-                            <Button variant="secondary" size="sm" className="w-full">Change Password</Button>
+                            <Button variant="secondary" size="sm" className="w-full" onClick={() => navigate('/forgot-password')}>Reset Password</Button>
                         </Card>
                     </div>
                 </div>

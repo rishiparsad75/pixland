@@ -1,7 +1,7 @@
 import { useEffect, useState, useContext } from "react";
 import api from "../api/axios";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Filter, MoreHorizontal, User, FileImage, Scan, AlertCircle, Download, DownloadCloud, Check, Loader2 } from "lucide-react";
+import { Search, Filter, MoreHorizontal, User, FileImage, Scan, AlertCircle, Download, DownloadCloud, Check, Loader2, Camera, Plus } from "lucide-react";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import AuthContext from "../context/AuthContext";
@@ -279,11 +279,40 @@ const Gallery = () => {
 
                 {!loading && hasFaceVerification && images.length === 0 && (
                     <div className="text-center py-20 bg-white/5 rounded-2xl border border-white/5 border-dashed">
-                        <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-500">
-                            <FileImage size={32} />
-                        </div>
-                        <p className="text-gray-400 text-lg mb-6">No photos found in your gallery.</p>
-                        <p className="text-gray-500 text-sm mb-6">Photos where your face was detected will appear here</p>
+                        {user?.role === 'photographer' ? (
+                            <>
+                                <div className="w-16 h-16 bg-indigo-500/10 rounded-full flex items-center justify-center mx-auto mb-4 text-indigo-500">
+                                    <Camera size={32} />
+                                </div>
+                                <p className="text-gray-400 text-lg mb-2">No photos found in your dashboard.</p>
+                                <p className="text-gray-500 text-sm mb-6">Create an event and upload photos to start building your gallery.</p>
+                                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                                    <Button
+                                        className="bg-indigo-600 hover:bg-indigo-500 gap-2"
+                                        onClick={() => navigate('/photographer/dashboard')}
+                                    >
+                                        <Plus size={18} /> Create Your First Event
+                                    </Button>
+                                    {user?.usage?.uploads?.count >= (user?.usage?.uploads?.monthlyLimit || 500) && (
+                                        <Button
+                                            variant="outline"
+                                            className="border-indigo-500/50 text-indigo-400 hover:bg-indigo-500/10"
+                                            onClick={() => navigate('/pricing')}
+                                        >
+                                            Upgrade Plan
+                                        </Button>
+                                    )}
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-500">
+                                    <FileImage size={32} />
+                                </div>
+                                <p className="text-gray-400 text-lg mb-6">No photos found in your gallery.</p>
+                                <p className="text-gray-500 text-sm mb-6">Photos where your face was detected will appear here</p>
+                            </>
+                        )}
                     </div>
                 )}
 

@@ -17,12 +17,14 @@ import FaceScan from "./pages/FaceScan";
 import FaceGroups from "./pages/FaceGroups";
 import Users from "./pages/admin/Users";
 import Pricing from "./pages/Pricing";
-
 import Albums from "./pages/admin/Albums";
 import Photos from "./pages/admin/Photos";
 import Settings from "./pages/admin/Settings";
 import ManageSubscriptions from "./pages/admin/ManageSubscriptions";
 import PhotographerSignup from "./pages/PhotographerSignup";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
+import EventPhotos from "./pages/admin/EventPhotos";
 
 
 const ProtectedRoute = ({ children, role }) => {
@@ -50,6 +52,8 @@ function App() {
             <Route path="/login" element={<><Navbar /><Login /></>} />
             <Route path="/register" element={<><Navbar /><Register /></>} />
             <Route path="/photographer-signup" element={<PhotographerSignup />} />
+            <Route path="/forgot-password" element={<><Navbar /><ForgotPassword /></>} />
+            <Route path="/reset-password" element={<><Navbar /><ResetPassword /></>} />
             <Route path="/event/:token" element={<><Navbar /><EventLanding /></>} />
             <Route path="/gallery" element={<ProtectedRoute><Navbar /><Gallery /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><Navbar /><Profile /></ProtectedRoute>} />
@@ -59,12 +63,14 @@ function App() {
             <Route path="/photographer" element={<ProtectedRoute role={["photographer", "super-admin"]}><AdminLayout /></ProtectedRoute>}>
               <Route path="dashboard" element={<PhotographerDashboard />} />
               <Route path="upload" element={<Upload />} />
+              <Route path="event/:eventId" element={<EventPhotos />} />
             </Route>
             <Route path="/admin" element={<ProtectedRoute role="super-admin"><AdminLayout /></ProtectedRoute>}>
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="users" element={<Users />} />
               <Route path="photographers" element={<Users />} />
               <Route path="albums" element={<Albums />} />
+              <Route path="event/:eventId" element={<EventPhotos />} />
               <Route path="photos" element={<Photos />} />
               <Route path="subscriptions" element={<ManageSubscriptions />} />
               <Route path="settings" element={<Settings />} />
