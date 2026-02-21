@@ -7,7 +7,11 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'server/**'
+      - '.github/workflows/main_pixland-api-rishi.yml'
   workflow_dispatch:
+
 
 jobs:
   build:
