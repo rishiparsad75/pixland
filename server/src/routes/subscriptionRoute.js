@@ -1,21 +1,26 @@
 const express = require("express");
 const router = express.Router();
 const User = require("../models/User");
-const { protect, admin } = require("../middleware/authMiddleware");
-const { hasPremiumAccess, isOnActiveTrial } = require("../middleware/usageLimits");
+const auth = require("../middleware/authMiddleware");
+const limits = require("../middleware/usageLimits");
 const SubscriptionRequest = require("../models/SubscriptionRequest");
+
+console.log("[Subscription] Middleware check - protect:", typeof auth.protect, "admin:", typeof auth.admin);
+if (typeof auth.protect !== 'function') console.error("[CRITICAL] auth.protect is NOT a function!");
+
 const multer = require("multer");
 const { uploadToBlob } = require("../services/blobService");
 
 const upload = multer({ storage: multer.memoryStorage() });
 
 // Get subscription status and usage
-router.get("/status", protect, async (req, res) => {
+router.get("/status", auth.protect, async (req, res) => {
     try {
         const user = await User.findById(req.user.id).select("-password");
 
-        const isPremium = hasPremiumAccess(user);
-        const onTrial = isOnActiveTrial(user);
+        const isPremium = limits.hasPremiumAccess(user);
+        const onTrial = limits.isOnActiveTrial(user);
+
 
         // Calculate limits
         const downloadLimit = isPremium ? 'unlimited' : 10;
@@ -51,7 +56,8 @@ router.get("/status", protect, async (req, res) => {
 });
 
 // Start free trial
-router.post("/trial/start", protect, async (req, res) => {
+router.post("/trial/start", auth.protect, async (req, res) => {
+
     try {
         const user = await User.findById(req.user.id);
 
@@ -85,7 +91,7 @@ router.post("/trial/start", protect, async (req, res) => {
 });
 
 // Upgrade to premium (placeholder - payment integration later)
-router.post("/upgrade", protect, async (req, res) => {
+router.post("/upgrade", auth.protect, async (req, res) => {
     try {
         const user = await User.findById(req.user.id);
 
@@ -124,7 +130,8 @@ router.post("/upgrade", protect, async (req, res) => {
 });
 
 // Submit manual payment request
-router.post("/request", protect, upload.single("screenshot"), async (req, res) => {
+router.post("/request", auth.protect, upload.single("screenshot"), async (req, res) => {
+
     try {
         const { plan, utr, amount } = req.body;
 
@@ -161,7 +168,8 @@ router.post("/request", protect, upload.single("screenshot"), async (req, res) =
 });
 
 // Get user's own requests
-router.get("/my-requests", protect, async (req, res) => {
+router.get("/my-requests", auth.protect, async (req, res) => {
+
     try {
         const requests = await SubscriptionRequest.find({ user: req.user.id })
             .sort("-createdAt");
@@ -173,7 +181,8 @@ router.get("/my-requests", protect, async (req, res) => {
 });
 
 // Get all requests (Admin only)
-router.get("/admin/requests", protect, admin, async (req, res) => {
+router.get("/admin/requests", auth.protect, auth.admin, async (req, res) => {
+
     try {
         const requests = await SubscriptionRequest.find()
             .populate("user", "name email role")
@@ -186,7 +195,8 @@ router.get("/admin/requests", protect, admin, async (req, res) => {
 });
 
 // Verify/Approve request (Admin only)
-router.post("/admin/verify", protect, admin, async (req, res) => {
+router.post("/admin/verify", auth.protect, auth.admin, async (req, res) => {
+
     try {
         const { requestId, status, adminNotes } = req.body;
 
@@ -235,7 +245,8 @@ router.post("/admin/verify", protect, admin, async (req, res) => {
 });
 
 // Cancel subscription
-router.post("/cancel", protect, async (req, res) => {
+router.post("/cancel", auth.protect, async (req, res) => {
+
     try {
         const user = await User.findById(req.user.id);
 
