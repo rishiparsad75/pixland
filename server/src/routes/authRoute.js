@@ -4,6 +4,7 @@ const User = require("../models/User");
 const OTP = require("../models/OTP");
 const jwt = require("jsonwebtoken");
 const { protect, superAdmin } = require("../middleware/authMiddleware");
+const { checkDownloadLimit, trackDownload } = require("../middleware/usageLimits");
 const { sendOTP, verifyOTP } = require("../services/smsService");
 const { sendEmailOTP } = require("../services/emailService");
 
@@ -514,6 +515,17 @@ router.post("/reset-password", async (req, res) => {
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
+});
+
+// @desc    Track download usage
+// @route   POST /api/users/track-download
+// @access  Private
+router.post("/track-download", protect, checkDownloadLimit, trackDownload, (req, res) => {
+    res.json({
+        message: "Download tracked",
+        usage: req.user.usage.downloads,
+        isPremium: req.user.subscription.plan === 'premium'
+    });
 });
 
 module.exports = router;

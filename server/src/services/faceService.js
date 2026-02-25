@@ -1,107 +1,115 @@
+const axios = require("axios");
+const dotenv = require("dotenv");
 const path = require("path");
 
-const MODEL_PATH = path.join(__dirname, "../../models");
-let modelsLoaded = false;
-let faceapi = null;
-let canvasLib = null;
+// Load env if not already loaded (useful for standalone scripts)
+dotenv.config({ path: path.join(__dirname, "../../.env") });
+
+const FACE_SERVICE_URL = "https://pixland-face-service-bffshxd7ccg8d3dg.centralindia-01.azurewebsites.net";
+const MATCH_THRESHOLD = 0.55;
 
 /**
- * Lazily load heavy packages only when face detection is actually needed.
- * This prevents OOM crashes at server startup on Azure.
+ * Extract face descriptors (embeddings) using the Python Microservice.
+ * @param {Buffer} imageBuffer - Raw image data
+ * @returns {Promise<Array>} - Array of face objects { descriptor: [...], faceRectangle: {...} }
  */
-const loadHeavyDeps = () => {
-    if (!faceapi) {
-        faceapi = require("@vladmandic/face-api");
-        canvasLib = require("canvas");
-        const { Canvas, Image, ImageData } = canvasLib;
-        faceapi.env.monkeyPatch({ Canvas, Image, ImageData });
-    }
-};
-
-/**
- * Load face-api models if not already loaded
- */
-const loadModels = async () => {
-    if (modelsLoaded) return;
-    loadHeavyDeps();
-
+const extractFaceDescriptors = async (imageBuffer) => {
     try {
-        console.log("[FaceAPI] Loading models from:", MODEL_PATH);
-        await faceapi.nets.ssdMobilenetv1.loadFromDisk(MODEL_PATH);
-        await faceapi.nets.faceLandmark68Net.loadFromDisk(MODEL_PATH);
-        await faceapi.nets.faceRecognitionNet.loadFromDisk(MODEL_PATH);
-        modelsLoaded = true;
-        console.log("[FaceAPI] Models loaded successfully");
+        console.log(`[FaceService] Extracting descriptors from Python service: ${FACE_SERVICE_URL}/extract`);
+
+        // Create FormData for multipart upload
+        const FormData = require("form-data");
+        const form = new FormData();
+        form.append("image", imageBuffer, { filename: "upload.jpg", contentType: "image/jpeg" });
+
+        const response = await axios.post(`${FACE_SERVICE_URL}/extract`, form, {
+            headers: {
+                ...form.getHeaders(),
+            },
+            timeout: 30000, // 30s timeout for DeepFace
+        });
+
+        if (response.data && response.data.embedding) {
+            return [{
+                descriptor: response.data.embedding,
+                faceRectangle: {
+                    top: response.data.face_area.y,
+                    left: response.data.face_area.x,
+                    width: response.data.face_area.w,
+                    height: response.data.face_area.h
+                }
+            }];
+        }
+
+        return [];
     } catch (error) {
-        console.error("[FaceAPI] Error loading models:", error);
-        throw new Error("Face models not found. Please ensure weight files are in /server/models");
+        console.error("[FaceService] Extraction Error:", error.response?.data?.message || error.message);
+        if (error.response?.data?.error === "NO_FACE_DETECTED") {
+            throw { code: "NO_FACE_DETECTED", message: "Face detection failed" };
+        }
+        throw new Error(`Face Service unavailable: ${error.message}`);
     }
 };
 
 /**
- * Detect faces and extract descriptors from an image buffer or URL.
- * Used only by the legacy /identify route (server-side detection).
+ * Compare two faces using the Python Microservice.
+ * @param {Array} embedding1 
+ * @param {Array} embedding2 
+ * @returns {Promise<number>} - Confidence score (0 to 1)
  */
-const detectAndExtractDescriptors = async (imageSource) => {
-    loadHeavyDeps();
-    await loadModels();
-
+const compareFaces = async (embedding1, embedding2) => {
     try {
-        const img = await canvasLib.loadImage(imageSource);
-        const detections = await faceapi
-            .detectAllFaces(img, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.35 }))
-            .withFaceLandmarks()
-            .withFaceDescriptors();
+        const response = await axios.post(`${FACE_SERVICE_URL}/compare`, {
+            embedding1,
+            embedding2
+        }, { timeout: 10000 });
 
-        return detections.map(d => ({
-            descriptor: Array.from(d.descriptor),
-            faceRectangle: {
-                top: d.detection.box.y,
-                left: d.detection.box.x,
-                width: d.detection.box.width,
-                height: d.detection.box.height
-            }
-        }));
+        return response.data.similarity;
     } catch (error) {
-        console.error("[FaceAPI] Detection failed:", error);
-        throw error;
+        console.error("[FaceService] Comparison Error:", error.message);
+        return 0;
     }
 };
 
 /**
- * Legacy support for identify route
+ * Match a face against a list of candidates.
+ * Replaces Azure findSimilarInList logic.
  */
-const detectFaces = async (imageUrl) => {
-    const results = await detectAndExtractDescriptors(imageUrl);
-    return results.map(r => ({
-        faceId: Math.random().toString(36).substr(2, 9),
-        faceRectangle: r.faceRectangle,
-        descriptor: r.descriptor
-    }));
+const findSimilarInList = async (targetEmbedding, candidates) => {
+    // candidates should be array of { id, descriptor }
+    // We can do this on our end to save API calls or call /compare in a loop (not ideal)
+    // However, for small batches, we can do cosine similarity in JS.
+
+    const results = [];
+    for (const cand of candidates) {
+        if (!cand.descriptor) continue;
+        const sim = await compareFaces(targetEmbedding, cand.descriptor);
+        if (sim >= MATCH_THRESHOLD) {
+            results.push({
+                persistedFaceId: cand.id,
+                confidence: sim
+            });
+        }
+    }
+    return results.sort((a, b) => b.confidence - a.confidence);
 };
 
-/**
- * Compare two face descriptors using Euclidean Distance.
- * This is pure math — no heavy deps needed at all.
- * Distance < 0.5 = strong match, < 0.6 = good match, > 0.6 = different person.
- */
-const compareFaces = (desc1, desc2) => {
-    if (!desc1 || !desc2) return Infinity;
-
-    const v1 = new Float32Array(desc1);
-    const v2 = new Float32Array(desc2);
-
-    let sum = 0;
-    for (let i = 0; i < v1.length; i++) {
-        const diff = v1[i] - v2[i];
-        sum += diff * diff;
+const checkFaceServiceHealth = async () => {
+    try {
+        const response = await axios.get(`${FACE_SERVICE_URL}/health`, { timeout: 3000 });
+        return { online: true, provider: "Python (ArcFace)" };
+    } catch {
+        return { online: false };
     }
-    return Math.sqrt(sum);
 };
 
 module.exports = {
-    detectAndExtractDescriptors,
-    detectFaces,
+    extractFaceDescriptors,
+    detectAndExtractDescriptors: extractFaceDescriptors,
     compareFaces,
-    loadModels
+    findSimilarInList,
+    checkFaceServiceHealth,
+    // Azure specific wrappers (empty now)
+    ensureFaceListExists: async () => console.log("[FaceService] Local mode: FaceList not required."),
+    addFaceToList: async () => null
 };

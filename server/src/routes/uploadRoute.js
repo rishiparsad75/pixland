@@ -6,14 +6,11 @@ const Image = require("../models/Image");
 const Event = require("../models/Event");
 const { detectAndExtractDescriptors } = require("../services/faceService");
 
-
 const router = express.Router();
-
 
 const upload = multer({
   storage: multer.memoryStorage(),
 });
-
 
 router.post("/", protect, photographer, upload.array("images", 50), async (req, res) => {
   try {
@@ -40,12 +37,10 @@ router.post("/", protect, photographer, upload.array("images", 50), async (req, 
         return res.status(403).json({ error: `Monthly upload limit reached (${uploadLimit} uploads/month). Upgrade to Pro for unlimited uploads.` });
       }
 
-      // Trim files if they exceed remaining quota
       if (req.files.length > spaceLeft) {
         req.files = req.files.slice(0, spaceLeft);
       }
 
-      // Increment count
       await User.findByIdAndUpdate(req.user._id, { $inc: { "usage.uploads.count": req.files.length } });
     }
 
@@ -53,31 +48,34 @@ router.post("/", protect, photographer, upload.array("images", 50), async (req, 
       // 1. Upload to Blob Storage
       const imageUrl = await uploadToBlob(file);
 
-      // 2. Detect & Extract Face Descriptors
-      let faceDetails = [];
-      try {
-        // Pass the buffer instead of URL to avoid canvas fetching issues
-        const results = await detectAndExtractDescriptors(file.buffer);
-        faceDetails = results.map(r => ({
-          descriptor: r.descriptor,
-          faceRectangle: r.faceRectangle
-        }));
-      } catch (faceError) {
-
-        console.error(`Face extraction failed for ${file.originalname}:`, faceError);
-      }
-
-      // 3. Save to Database
-      return await Image.create({
+      // 2. Create Initial Image Record
+      const imageRecord = await Image.create({
         user: req.user._id,
         event: eventId,
         url: imageUrl,
         blobName: file.originalname,
-        metadata: {
-          detectedFaces: faceDetails
-        }
+        status: "processing"
       });
 
+      // 3. Detect & Extract Face Descriptors (Microservice)
+      let faceDetails = [];
+      try {
+        const results = await detectAndExtractDescriptors(file.buffer);
+
+        faceDetails = results.map(r => ({
+          descriptor: r.descriptor, // This is the 512-D embedding
+          faceRectangle: r.faceRectangle,
+          indexed: true
+        }));
+      } catch (faceError) {
+        console.error(`Face extraction failed for ${file.originalname}:`, faceError);
+      }
+
+      // 4. Update Record to 'ready'
+      imageRecord.metadata = { detectedFaces: faceDetails };
+      imageRecord.status = "ready";
+      imageRecord.processedAt = new Date();
+      return await imageRecord.save();
     });
 
     const results = await Promise.all(uploadPromises);

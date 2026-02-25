@@ -1,4 +1,5 @@
 import { createContext, useState, useEffect } from "react";
+import api from '../api/axios';
 
 const AuthContext = createContext();
 
@@ -17,13 +18,24 @@ export const AuthProvider = ({ children }) => {
         setUser(userData);
     };
 
+    const refreshUser = async () => {
+        try {
+            const { data } = await api.get('/api/auth/me'); // Ensure api is available or use fetch
+            localStorage.setItem("user", JSON.stringify(data));
+            setUser(data);
+            return data;
+        } catch (error) {
+            console.error("Failed to refresh user:", error);
+        }
+    };
+
     const logout = () => {
         localStorage.removeItem("user");
         setUser(null);
     };
 
     return (
-        <AuthContext.Provider value={{ user, login, logout }}>
+        <AuthContext.Provider value={{ user, login, logout, refreshUser }}>
             {children}
         </AuthContext.Provider>
     );

@@ -43,6 +43,7 @@ const hasPremiumAccess = (user) => {
 const checkDownloadLimit = async (req, res, next) => {
     try {
         const user = await User.findById(req.user.id);
+        const { isBulk } = req.body; // Check if it's a bulk request
 
         if (!user) {
             return res.status(404).json({ message: "User not found" });
@@ -53,30 +54,30 @@ const checkDownloadLimit = async (req, res, next) => {
 
         // Premium users (including trial) have unlimited downloads
         if (hasPremiumAccess(user)) {
-            req.user = user; // Update req.user with latest data
+            req.user = user;
             return next();
+        }
+
+        // STRICT BLOCK: Bulk download is Premium Only
+        if (isBulk) {
+            return res.status(403).json({
+                error: 'Premium Required',
+                message: "Bulk download is a premium feature. Please upgrade to download all photos at once.",
+                upgradeRequired: true
+            });
         }
 
         // Free tier: Check limit with grace period
         const effectiveLimit = FREE_DOWNLOAD_LIMIT + GRACE_PERIOD;
 
         if (user.usage.downloads.count >= effectiveLimit) {
-            // Hard block
             return res.status(403).json({
                 error: 'Download limit exceeded',
-                message: `You have reached your free tier limit of ${FREE_DOWNLOAD_LIMIT} downloads (plus ${GRACE_PERIOD} grace downloads). Upgrade to Premium for unlimited downloads!`,
+                message: `You have reached your free tier limit of ${FREE_DOWNLOAD_LIMIT} downloads. Upgrade to Premium for unlimited access!`,
                 upgradeRequired: true,
                 currentUsage: user.usage.downloads.count,
                 limit: FREE_DOWNLOAD_LIMIT
             });
-        }
-
-        // Warning if approaching limit
-        if (user.usage.downloads.count >= FREE_DOWNLOAD_LIMIT - 2) {
-            res.locals.limitWarning = {
-                message: `You have ${effectiveLimit - user.usage.downloads.count} downloads remaining this month.`,
-                upgradeRecommended: true
-            };
         }
 
         req.user = user;

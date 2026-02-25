@@ -1,16 +1,15 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Webcam from "react-webcam";
-import * as faceapi from "face-api.js";
 import api from "../api/axios";
 import Button from "../components/ui/Button";
-import { Camera, ShieldCheck, Loader2, Sparkles, X, ChevronRight } from "lucide-react";
+import { Camera, ShieldCheck, Loader2, Sparkles, X, ChevronRight, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const FaceScan = () => {
     const navigate = useNavigate();
     const webcamRef = useRef(null);
-    const [status, setStatus] = useState("initializing"); // initializing, loading_models, ready, scanning, matching, success
+    const [status, setStatus] = useState("initializing"); // initializing, ready, scanning, matching, success
     const [progress, setProgress] = useState(0);
     const [error, setError] = useState(null);
     const [matchedImages, setMatchedImages] = useState([]);
@@ -28,9 +27,8 @@ const FaceScan = () => {
                 // 2. Fetch all active events for selection
                 await fetchEvents();
             }
-
-            // 3. Load AI Models
-            loadModels();
+            // No local model loading needed — Python ArcFace handles everything server-side
+            setStatus("ready");
         };
 
         const fetchEvents = async () => {
@@ -45,72 +43,71 @@ const FaceScan = () => {
             }
         };
 
-        const loadModels = async () => {
-            try {
-                setStatus("loading_models");
-                const MODEL_URL = "/models";
-                await Promise.all([
-                    faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
-                    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-                    faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-                ]);
-                setStatus("ready");
-            } catch (err) {
-                console.error("Error loading models", err);
-                setError("AI Models failed to load. Please check if model files are in /public/models");
-            }
-        };
-
         loadInitialData();
     }, []);
 
 
 
-    const handleScan = async () => {
+    const handleScan = useCallback(async () => {
         if (!webcamRef.current) return;
 
         setStatus("scanning");
-        setProgress(30);
+        setProgress(20);
+        setError(null);
 
         try {
-            const video = webcamRef.current.video;
-            const detection = await faceapi
-                .detectSingleFace(video, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.4 }))
-                .withFaceLandmarks()
-                .withFaceDescriptor();
-
-
-            if (!detection) {
+            // 1. Capture selfie from webcam as base64 JPEG
+            const screenshot = webcamRef.current.getScreenshot({ width: 640, height: 480 });
+            if (!screenshot) {
                 setStatus("ready");
-                setError("No face detected. Please ensure your face is clearly visible.");
+                setError("Could not capture photo. Please allow camera access.");
                 return;
             }
 
-            setProgress(60);
+            setProgress(40);
             setStatus("matching");
 
-            const descriptor = Array.from(detection.descriptor);
-            const eventData = JSON.parse(sessionStorage.getItem("currentEvent") || "{}");
+            // 2. Convert base64 to Blob for multipart upload
+            const res = await fetch(screenshot);
+            const blob = await res.blob();
 
-            const res = await api.post("/api/face/match", {
-                descriptor,
-                eventId: eventData?._id
+            // 3. Send to /api/face/identify — Python ArcFace handles extraction + matching
+            const formData = new FormData();
+            formData.append("selfie", blob, "selfie.jpg");
+            const eventData = JSON.parse(sessionStorage.getItem("currentEvent") || "{}");
+            if (eventData?._id) formData.append("eventId", eventData._id);
+
+            setProgress(60);
+
+            const response = await api.post("/api/face/identify", formData, {
+                headers: { "Content-Type": "multipart/form-data" },
+                timeout: 90000 // 90s — ArcFace cold start can take time
             });
 
             setProgress(100);
-            if (res.data.images && res.data.images.length > 0) {
-                setMatchedImages(res.data.images);
+
+            if (response.data.images && response.data.images.length > 0) {
+                setMatchedImages(response.data.images);
                 setStatus("success");
+            } else if (response.data.processing) {
+                setStatus("ready");
+                setError("Photos are still being processed. Please wait a moment and try again.");
             } else {
                 setStatus("ready");
-                setError("No matching photos found in this event.");
+                setError("No matching photos found. Try better lighting or a front-facing angle.");
             }
         } catch (err) {
-            console.error("Analysis failed", err);
+            console.error("Face scan failed", err);
             setStatus("ready");
-            setError("Analysis failed. Please try again.");
+            if (err.response?.data?.error === "NO_FACE_DETECTED") {
+                setError("No face detected. Please ensure your face is clearly visible and try again.");
+            } else if (err.code === "ECONNABORTED" || err.message?.includes("timeout")) {
+                setError("Request timed out. The AI service may be warming up — please try again in 10 seconds.");
+            } else {
+                setError(err.response?.data?.message || "Analysis failed. Please try again.");
+            }
         }
-    };
+    }, []);
 
     return (
         <div className="min-h-screen bg-black flex flex-col items-center justify-center p-6 pt-24">
@@ -183,20 +180,21 @@ const FaceScan = () => {
                             )}
                         </div>
                     ) : (
-                        /* Camera View (Existing logic) */
+                        /* Camera View */
                         <div className="relative aspect-square rounded-[2rem] overflow-hidden bg-black border-2 border-white/5 group">
                             {status === "ready" || status === "scanning" || status === "matching" ? (
                                 <Webcam
                                     audio={false}
                                     ref={webcamRef}
                                     screenshotFormat="image/jpeg"
+                                    screenshotQuality={0.92}
                                     className="w-full h-full object-cover"
-                                    videoConstraints={{ facingMode: "user" }}
+                                    videoConstraints={{ facingMode: "user", width: 640, height: 480 }}
                                 />
                             ) : (
                                 <div className="w-full h-full flex flex-col items-center justify-center text-gray-500 gap-4">
                                     <Loader2 className="animate-spin text-indigo-500" size={40} />
-                                    <p className="text-xs uppercase tracking-widest font-bold">Initializing Sensor...</p>
+                                    <p className="text-xs uppercase tracking-widest font-bold">Starting Camera...</p>
                                 </div>
                             )}
 
@@ -229,13 +227,31 @@ const FaceScan = () => {
                                         We found {matchedImages.length} photos of you in {event?.name || "this event"}.
                                     </p>
 
+                                    {matchedImages.some(img => img.confidenceCategory === "low") && (
+                                        <div className="mt-4 px-4 py-2 bg-yellow-400/20 border border-yellow-400/30 rounded-xl flex items-center gap-2">
+                                            <AlertCircle size={14} className="text-yellow-400" />
+                                            <p className="text-[10px] text-yellow-200 font-bold uppercase tracking-wider">
+                                                Some results have low confidence
+                                            </p>
+                                        </div>
+                                    )}
+
                                     <Button
                                         variant="white"
-                                        className="mt-8 w-full py-4 rounded-2xl gap-2 font-black"
+                                        className="mt-8 w-full py-4 rounded-2xl gap-2 font-black shadow-xl"
                                         onClick={() => navigate("/gallery", { state: { matchedImages, event } })}
                                     >
-                                        Go to Gallery <ChevronRight size={18} />
+                                        View Matches <ChevronRight size={18} />
                                     </Button>
+                                    <button
+                                        onClick={() => {
+                                            setStatus("ready");
+                                            setMatchedImages([]);
+                                        }}
+                                        className="mt-4 text-indigo-200/60 hover:text-white text-[10px] font-bold uppercase tracking-widest"
+                                    >
+                                        Scan Again
+                                    </button>
                                 </motion.div>
                             )}
                         </div>

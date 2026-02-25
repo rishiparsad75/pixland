@@ -5,7 +5,7 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 const api = axios.create({
     baseURL: API_URL,
-    timeout: 30000, // 30 second timeout for face detection operations
+    timeout: 60000, // 60 second timeout for face detection (cold start ~45s)
 });
 
 // Request interceptor - add auth token

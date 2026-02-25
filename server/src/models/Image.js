@@ -23,12 +23,23 @@ const imageSchema = mongoose.Schema(
             type: String,
             required: true
         },
+        status: {
+            type: String,
+            enum: ["processing", "ready"],
+            default: "processing",
+            index: true
+        },
+        processedAt: Date,
         metadata: {
             detectedFaces: [
                 {
                     faceId: String,
                     persistedFaceId: String,
                     descriptor: [Number],
+                    indexed: {
+                        type: Boolean,
+                        default: false
+                    },
                     faceRectangle: {
                         top: Number,
                         left: Number,

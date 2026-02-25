@@ -36,7 +36,7 @@ const Gallery = () => {
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
     const [upgradeReason, setUpgradeReason] = useState("");
 
-    const isPremium = user?.subscription?.plan === 'premium' && user?.subscription?.status === 'active';
+    const isPremium = user?.subscription?.plan === 'premium' || (user?.subscription?.isOnTrial && new Date() < new Date(user?.subscription?.trialEndsAt));
 
     const handleDownload = async (img) => {
         try {
@@ -198,7 +198,7 @@ const Gallery = () => {
                                         <DownloadCloud size={16} /> Download All
                                     </>
                                 )}
-                                {user?.subscription?.plan !== 'premium' && (
+                                {!isPremium && (
                                     <span className="ml-1 text-[8px] bg-indigo-500 text-white px-1 rounded-sm">PRO</span>
                                 )}
                             </Button>
@@ -230,7 +230,10 @@ const Gallery = () => {
                         {images.map((img) => (
                             <motion.div key={img._id} variants={item}>
                                 <Card className="p-0 group cursor-pointer border-0" hoverEffect={false}>
-                                    <div className="relative aspect-[4/3] overflow-hidden bg-gray-900">
+                                    <div
+                                        className="relative aspect-[4/3] overflow-hidden bg-gray-900"
+                                        onClick={() => handleDownload(img)}
+                                    >
                                         <img
                                             src={img.url}
                                             alt="Uploaded"
@@ -262,8 +265,8 @@ const Gallery = () => {
                                                         e.stopPropagation();
                                                         handleDownload(img);
                                                     }}
-                                                    disabled={downloadingImageId === img._id || !user?.isPremium}
-                                                    className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/40 border border-indigo-400/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    disabled={downloadingImageId === img._id}
+                                                    className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/40 border border-indigo-400/30 disabled:opacity-50"
                                                 >
                                                     {downloadingImageId === img._id ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
                                                 </motion.button>

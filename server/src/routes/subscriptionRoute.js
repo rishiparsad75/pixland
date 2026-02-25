@@ -98,6 +98,7 @@ router.post("/upgrade", auth.protect, async (req, res) => {
         // TODO: Integrate payment gateway (Razorpay/Stripe)
         // For now, just upgrade directly (for testing)
 
+        // Upgrade to premium (placeholder - payment integration later)
         user.subscription.plan = 'premium';
         user.subscription.status = 'active';
         user.subscription.startDate = new Date();
@@ -117,6 +118,7 @@ router.post("/upgrade", auth.protect, async (req, res) => {
 
         res.json({
             message: `Successfully upgraded to Premium! (${price}/month)`,
+            requiresRefresh: true, // Frontend trigger
             subscription: {
                 plan: user.subscription.plan,
                 status: user.subscription.status,
@@ -236,6 +238,7 @@ router.post("/admin/verify", auth.protect, auth.admin, async (req, res) => {
 
         res.json({
             message: `Subscription request ${status} successfully`,
+            requiresRefresh: status === "approved",
             request
         });
     } catch (error) {
