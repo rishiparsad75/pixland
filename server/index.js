@@ -52,6 +52,15 @@ app.use(express.json());
 // Health check endpoints (registered FIRST so Azure probe works immediately)
 app.get("/", (req, res) => res.send("PixLand Backend Running (v1.0.5-FINAL)"));
 app.get("/api/health", (req, res) => res.json({ status: "ok", version: "1.0.5-FINAL", time: new Date() }));
+app.get("/api/face/system-load", (req, res) => {
+    const { getServiceStatus } = require("./src/services/faceService");
+    const status = getServiceStatus();
+    res.json({
+        ...status,
+        memoryUsage: process.memoryUsage(),
+        uptime: process.uptime()
+    });
+});
 
 // Socket.IO
 const io = new Server(server, {
@@ -117,6 +126,16 @@ connectDB().then(async () => {
     } catch (err) {
         console.error("[Migration] Error:", err.message);
     }
+
+    // Initialize Face Service (Large Memory Load)
+    const { initFaceService } = require("./src/services/faceService");
+    initFaceService().then(res => {
+        if (res.success) {
+            console.log(`[FaceService] Initialized with ${res.count} descriptors.`);
+        } else {
+            console.warn("[FaceService] Initialization had issues:", res.error);
+        }
+    });
 }).catch(err => {
     console.error("[DB] MongoDB connection failed:", err.message);
     // Don't exit — server still runs, routes will fail gracefully

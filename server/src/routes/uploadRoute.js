@@ -57,16 +57,26 @@ router.post("/", protect, photographer, upload.array("images", 50), async (req, 
         status: "processing"
       });
 
-      // 3. Detect & Extract Face Descriptors (Microservice)
+      // 3. Detect & Extract Face Descriptors (All faces in photo)
       let faceDetails = [];
       try {
-        const results = await detectAndExtractDescriptors(file.buffer);
+        const { extractAllFaces, addDescriptorToCache } = require("../services/faceService");
+        const faces = await extractAllFaces(file.buffer);
 
-        faceDetails = results.map(r => ({
-          descriptor: r.descriptor, // This is the 512-D embedding
-          faceRectangle: r.faceRectangle,
-          indexed: true
-        }));
+        faces.forEach(face => {
+          faceDetails.push({
+            descriptor: face.descriptor,
+            faceRectangle: face.faceRectangle,
+            indexed: true
+          });
+
+          // Sync with in-memory store
+          addDescriptorToCache(face.descriptor, {
+            url: imageUrl,
+            eventId,
+            faceRectangle: face.faceRectangle
+          });
+        });
       } catch (faceError) {
         console.error(`Face extraction failed for ${file.originalname}:`, faceError);
       }

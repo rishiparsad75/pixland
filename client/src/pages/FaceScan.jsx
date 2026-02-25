@@ -16,6 +16,9 @@ const FaceScan = () => {
     const [event, setEvent] = useState(null);
     const [availableEvents, setAvailableEvents] = useState([]);
     const [fetchingEvents, setFetchingEvents] = useState(false);
+    const [cooldown, setCooldown] = useState(false);
+    const [isHighTraffic, setIsHighTraffic] = useState(false);
+    const [perfData, setPerfData] = useState(null);
 
     useEffect(() => {
         const loadInitialData = async () => {
@@ -27,7 +30,6 @@ const FaceScan = () => {
                 // 2. Fetch all active events for selection
                 await fetchEvents();
             }
-            // No local model loading needed — Python ArcFace handles everything server-side
             setStatus("ready");
         };
 
@@ -46,32 +48,45 @@ const FaceScan = () => {
         loadInitialData();
     }, []);
 
-
-
     const handleScan = useCallback(async () => {
-        if (!webcamRef.current) return;
+        if (!webcamRef.current || cooldown) return;
 
         setStatus("scanning");
         setProgress(20);
         setError(null);
+        setIsHighTraffic(false);
+        setPerfData(null);
+
+        // Start High Traffic Timer
+        const trafficTimer = setTimeout(() => {
+            setIsHighTraffic(true);
+        }, 2000);
 
         try {
-            // 1. Capture selfie from webcam as base64 JPEG
+            // 1. Capture selfie
             const screenshot = webcamRef.current.getScreenshot({ width: 640, height: 480 });
             if (!screenshot) {
                 setStatus("ready");
                 setError("Could not capture photo. Please allow camera access.");
+                clearTimeout(trafficTimer);
                 return;
             }
 
             setProgress(40);
             setStatus("matching");
 
-            // 2. Convert base64 to Blob for multipart upload
-            const res = await fetch(screenshot);
-            const blob = await res.blob();
+            // 2. Convert base64 to Blob
+            const base64Data = screenshot.split(',')[1];
+            const byteString = atob(base64Data);
+            const mimeString = screenshot.split(',')[0].split(':')[1].split(';')[0];
+            const ab = new ArrayBuffer(byteString.length);
+            const ia = new Uint8Array(ab);
+            for (let i = 0; i < byteString.length; i++) {
+                ia[i] = byteString.charCodeAt(i);
+            }
+            const blob = new Blob([ab], { type: mimeString });
 
-            // 3. Send to /api/face/identify — Python ArcFace handles extraction + matching
+            // 3. Send to /api/face/identify
             const formData = new FormData();
             formData.append("selfie", blob, "selfie.jpg");
             const eventData = JSON.parse(sessionStorage.getItem("currentEvent") || "{}");
@@ -80,34 +95,38 @@ const FaceScan = () => {
             setProgress(60);
 
             const response = await api.post("/api/face/identify", formData, {
-                headers: { "Content-Type": "multipart/form-data" },
-                timeout: 90000 // 90s — ArcFace cold start can take time
+                headers: { "Content-Type": "multipart/form-data" }
             });
 
+            clearTimeout(trafficTimer);
             setProgress(100);
+            setPerfData(response.data.performance);
 
             if (response.data.images && response.data.images.length > 0) {
                 setMatchedImages(response.data.images);
                 setStatus("success");
-            } else if (response.data.processing) {
-                setStatus("ready");
-                setError("Photos are still being processed. Please wait a moment and try again.");
             } else {
                 setStatus("ready");
                 setError("No matching photos found. Try better lighting or a front-facing angle.");
+                startCooldown();
             }
         } catch (err) {
+            clearTimeout(trafficTimer);
             console.error("Face scan failed", err);
             setStatus("ready");
             if (err.response?.data?.error === "NO_FACE_DETECTED") {
-                setError("No face detected. Please ensure your face is clearly visible and try again.");
-            } else if (err.code === "ECONNABORTED" || err.message?.includes("timeout")) {
-                setError("Request timed out. The AI service may be warming up — please try again in 10 seconds.");
+                setError("No face detected. Please ensure your face is clearly visible.");
             } else {
                 setError(err.response?.data?.message || "Analysis failed. Please try again.");
             }
+            startCooldown();
         }
-    }, []);
+    }, [cooldown]);
+
+    const startCooldown = () => {
+        setCooldown(true);
+        setTimeout(() => setCooldown(false), 3000); // 3s cooldown
+    };
 
     return (
         <div className="min-h-screen bg-black flex flex-col items-center justify-center p-6 pt-24">
@@ -268,12 +287,21 @@ const FaceScan = () => {
                                 className="bg-red-500/10 border border-red-500/20 p-4 rounded-2xl flex items-center gap-3 mb-6"
                             >
                                 <div className="p-1.5 bg-red-500 rounded-lg text-white">
-                                    <X size={14} />
+                                    <AlertCircle size={14} />
                                 </div>
                                 <p className="text-red-400 text-xs font-bold leading-relaxed flex-1">{error}</p>
-                                <button onClick={() => setError(null)} className="text-gray-500 hover:text-white">
-                                    <X size={16} />
-                                </button>
+                            </motion.div>
+                        ) : isHighTraffic && (status === "scanning" || status === "matching") ? (
+                            <motion.div
+                                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                                className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-2xl flex items-center gap-3 mb-6"
+                            >
+                                <div className="p-1.5 bg-amber-500 rounded-lg text-white">
+                                    <Loader2 size={14} className="animate-spin" />
+                                </div>
+                                <p className="text-amber-400 text-xs font-bold leading-relaxed flex-1">
+                                    High Traffic: Please stay with us, your scan is in progress...
+                                </p>
                             </motion.div>
                         ) : null}
                     </AnimatePresence>
@@ -282,14 +310,18 @@ const FaceScan = () => {
                         <div className="space-y-4">
                             <Button
                                 size="lg"
-                                disabled={status !== "ready" && !error}
-                                className="w-full h-16 rounded-2xl font-black text-lg shadow-xl shadow-indigo-600/20 gap-3"
+                                disabled={(status !== "ready" && status !== "initializing") || cooldown}
+                                className={`w-full h-16 rounded-2xl font-black text-lg shadow-xl gap-3 transition-all ${cooldown ? "bg-gray-800 text-gray-500" : "shadow-indigo-600/20"
+                                    }`}
                                 onClick={handleScan}
                             >
                                 {status === "scanning" || status === "matching" ? (
                                     <>
-                                        <Loader2 className="animate-spin" /> Analyzing...
+                                        <Loader2 className="animate-spin" />
+                                        {isHighTraffic ? "In Queue..." : "Analyzing..."}
                                     </>
+                                ) : cooldown ? (
+                                    "Wait 3s..."
                                 ) : (
                                     <>
                                         <Camera size={22} /> Start Analysis

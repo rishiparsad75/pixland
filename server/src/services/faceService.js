@@ -1,115 +1,232 @@
-const axios = require("axios");
-const dotenv = require("dotenv");
+const faceapi = require("@vladmandic/face-api");
+const { Canvas, Image, ImageData, createCanvas, loadImage } = require("canvas");
 const path = require("path");
+const mongoose = require("mongoose");
 
-// Load env if not already loaded (useful for standalone scripts)
-dotenv.config({ path: path.join(__dirname, "../../.env") });
+// Patch face-api.js for Node.js environment
+faceapi.env.monkeyPatch({ Canvas, Image, ImageData });
 
-const FACE_SERVICE_URL = "https://pixland-face-service-bffshxd7ccg8d3dg.centralindia-01.azurewebsites.net";
-const MATCH_THRESHOLD = 0.55;
+const MODELS_PATH = path.join(__dirname, "../../models");
+
+let modelsLoaded = false;
+let descriptorStore = []; // In-memory cache
+
+// --- Queue System for Scans (Selfies) ---
+const scanQueue = [];
+let activeScans = 0;
+const MAX_PARALLEL_SCANS = 4;
 
 /**
- * Extract face descriptors (embeddings) using the Python Microservice.
- * @param {Buffer} imageBuffer - Raw image data
- * @returns {Promise<Array>} - Array of face objects { descriptor: [...], faceRectangle: {...} }
+ * Loads the face-api.js models into memory.
  */
-const extractFaceDescriptors = async (imageBuffer) => {
+const loadModels = async () => {
+    if (modelsLoaded) return;
     try {
-        console.log(`[FaceService] Extracting descriptors from Python service: ${FACE_SERVICE_URL}/extract`);
+        console.log("[FaceService] Loading models...");
+        await Promise.all([
+            faceapi.nets.ssdMobilenetv1.loadFromDisk(MODELS_PATH),
+            faceapi.nets.faceLandmark68Net.loadFromDisk(MODELS_PATH),
+            faceapi.nets.faceRecognitionNet.loadFromDisk(MODELS_PATH)
+        ]);
+        modelsLoaded = true;
+        console.log("[FaceService] Models loaded.");
+    } catch (error) {
+        console.error("[FaceService] Error loading models:", error.message);
+        throw error;
+    }
+};
 
-        // Create FormData for multipart upload
-        const FormData = require("form-data");
-        const form = new FormData();
-        form.append("image", imageBuffer, { filename: "upload.jpg", contentType: "image/jpeg" });
+/**
+ * Initial Loader: Loads all descriptors from DB into memory.
+ */
+const initFaceService = async () => {
+    try {
+        await loadModels();
+        const ImageModel = require("../models/Image");
+        console.log("[FaceService] Filling cache from MongoDB...");
 
-        const response = await axios.post(`${FACE_SERVICE_URL}/extract`, form, {
-            headers: {
-                ...form.getHeaders(),
-            },
-            timeout: 30000, // 30s timeout for DeepFace
+        const images = await ImageModel.find({
+            "metadata.detectedFaces.0": { $exists: true },
+            status: "ready"
+        }).select("url metadata.detectedFaces event");
+
+        descriptorStore = [];
+        images.forEach(img => {
+            img.metadata.detectedFaces.forEach(face => {
+                if (face.descriptor && Array.isArray(face.descriptor)) {
+                    descriptorStore.push({
+                        descriptor: new Float32Array(face.descriptor),
+                        metadata: {
+                            url: img.url,
+                            eventId: img.event,
+                            faceRectangle: face.faceRectangle
+                        }
+                    });
+                }
+            });
         });
 
-        if (response.data && response.data.embedding) {
-            return [{
-                descriptor: response.data.embedding,
-                faceRectangle: {
-                    top: response.data.face_area.y,
-                    left: response.data.face_area.x,
-                    width: response.data.face_area.w,
-                    height: response.data.face_area.h
-                }
-            }];
-        }
-
-        return [];
+        console.log(`[FaceService] Cache ready: ${descriptorStore.length} descriptors.`);
+        return { success: true, count: descriptorStore.length };
     } catch (error) {
-        console.error("[FaceService] Extraction Error:", error.response?.data?.message || error.message);
-        if (error.response?.data?.error === "NO_FACE_DETECTED") {
-            throw { code: "NO_FACE_DETECTED", message: "Face detection failed" };
-        }
-        throw new Error(`Face Service unavailable: ${error.message}`);
+        console.error("[FaceService] Init Error:", error.message);
+        return { success: false, error: error.message };
     }
 };
 
 /**
- * Compare two faces using the Python Microservice.
- * @param {Array} embedding1 
- * @param {Array} embedding2 
- * @returns {Promise<number>} - Confidence score (0 to 1)
+ * Resize image to max 600px for scans.
  */
-const compareFaces = async (embedding1, embedding2) => {
+const resizeImage = async (buffer) => {
     try {
-        const response = await axios.post(`${FACE_SERVICE_URL}/compare`, {
-            embedding1,
-            embedding2
-        }, { timeout: 10000 });
+        const img = await loadImage(buffer);
+        const MAX_DIM = 600;
+        let width = img.width;
+        let height = img.height;
 
-        return response.data.similarity;
-    } catch (error) {
-        console.error("[FaceService] Comparison Error:", error.message);
-        return 0;
+        if (width > MAX_DIM || height > MAX_DIM) {
+            if (width > height) {
+                height = (height / width) * MAX_DIM;
+                width = MAX_DIM;
+            } else {
+                width = (width / height) * MAX_DIM;
+                height = MAX_DIM;
+            }
+        }
+
+        const canvas = createCanvas(width, height);
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+        return canvas.toBuffer("image/jpeg");
+    } catch (e) {
+        return buffer;
     }
 };
 
 /**
- * Match a face against a list of candidates.
- * Replaces Azure findSimilarInList logic.
+ * [SCANS] Queued & Resized - For high performance under load.
  */
-const findSimilarInList = async (targetEmbedding, candidates) => {
-    // candidates should be array of { id, descriptor }
-    // We can do this on our end to save API calls or call /compare in a loop (not ideal)
-    // However, for small batches, we can do cosine similarity in JS.
+const enqueueScan = (imageBuffer) => {
+    return new Promise((resolve, reject) => {
+        scanQueue.push({ imageBuffer, resolve, reject });
+        processScanQueue();
+    });
+};
 
-    const results = [];
-    for (const cand of candidates) {
-        if (!cand.descriptor) continue;
-        const sim = await compareFaces(targetEmbedding, cand.descriptor);
-        if (sim >= MATCH_THRESHOLD) {
-            results.push({
-                persistedFaceId: cand.id,
-                confidence: sim
+const processScanQueue = async () => {
+    if (activeScans >= MAX_PARALLEL_SCANS || scanQueue.length === 0) return;
+
+    const { imageBuffer, resolve, reject } = scanQueue.shift();
+    activeScans++;
+
+    try {
+        await loadModels();
+        const resizedBuffer = await resizeImage(imageBuffer);
+        const img = new Image();
+        img.src = resizedBuffer;
+
+        const detection = await faceapi.detectSingleFace(img)
+            .withFaceLandmarks()
+            .withFaceDescriptor();
+
+        if (!detection) {
+            resolve(null);
+        } else {
+            resolve({
+                descriptor: Array.from(detection.descriptor),
+                faceRectangle: {
+                    top: detection.detection.box.top,
+                    left: detection.detection.box.left,
+                    width: detection.detection.box.width,
+                    height: detection.detection.box.height
+                }
+            });
+        }
+    } catch (error) {
+        reject(error);
+    } finally {
+        activeScans--;
+        processScanQueue();
+    }
+};
+
+/**
+ * [UPLOADS] Non-Queued, Original Quality - For background indexing.
+ */
+const extractAllFacesFromBuffer = async (imageBuffer) => {
+    try {
+        await loadModels();
+        const img = new Image();
+        img.src = imageBuffer;
+
+        const detections = await faceapi.detectAllFaces(img)
+            .withFaceLandmarks()
+            .withFaceDescriptors();
+
+        return detections.map(d => ({
+            descriptor: Array.from(d.descriptor),
+            faceRectangle: {
+                top: d.detection.box.top,
+                left: d.detection.box.left,
+                width: d.detection.box.width,
+                height: d.detection.box.height
+            }
+        }));
+    } catch (error) {
+        console.error("[FaceService] Upload Extraction Error:", error.message);
+        throw error;
+    }
+};
+
+/**
+ * Fast in-memory matching using Euclidean distance.
+ */
+const findMatchesInMemory = (targetDescriptor, threshold = 0.5) => {
+    if (!targetDescriptor || descriptorStore.length === 0) return [];
+
+    const tD = new Float32Array(targetDescriptor);
+    const matches = [];
+
+    for (const item of descriptorStore) {
+        const distance = faceapi.euclideanDistance(tD, item.descriptor);
+        if (distance < threshold) {
+            matches.push({
+                ...item.metadata,
+                similarity: parseFloat((1 - distance).toFixed(4))
             });
         }
     }
-    return results.sort((a, b) => b.confidence - a.confidence);
+
+    return matches.sort((a, b) => b.similarity - a.similarity);
 };
 
-const checkFaceServiceHealth = async () => {
-    try {
-        const response = await axios.get(`${FACE_SERVICE_URL}/health`, { timeout: 3000 });
-        return { online: true, provider: "Python (ArcFace)" };
-    } catch {
-        return { online: false };
-    }
+const addDescriptorToCache = (descriptor, metadata) => {
+    descriptorStore.push({
+        descriptor: new Float32Array(descriptor),
+        metadata
+    });
+};
+
+const getServiceStatus = () => {
+    return {
+        modelsLoaded,
+        descriptorCount: descriptorStore.length,
+        activeScans,
+        queueLength: scanQueue.length,
+        provider: "Node.js Optimized V2"
+    };
 };
 
 module.exports = {
-    extractFaceDescriptors,
-    detectAndExtractDescriptors: extractFaceDescriptors,
-    compareFaces,
-    findSimilarInList,
-    checkFaceServiceHealth,
-    // Azure specific wrappers (empty now)
-    ensureFaceListExists: async () => console.log("[FaceService] Local mode: FaceList not required."),
-    addFaceToList: async () => null
+    initFaceService,
+    extractFaceDescriptor: enqueueScan,
+    extractAllFaces: extractAllFacesFromBuffer,
+    findMatchesInMemory,
+    addDescriptorToCache,
+    getServiceStatus,
+    // Compatibility wrappers
+    detectAndExtractDescriptors: async (buf) => {
+        const res = await enqueueScan(buf);
+        return res ? [res] : [];
+    }
 };

@@ -27,43 +27,13 @@ router.post("/identify", upload.single("selfie"), async (req, res) => {
         }
         const targetEmbedding = selfieResults[0].descriptor;
 
-        // 2. Fetch all images for this event (that have faces)
-        const query = {
-            "metadata.detectedFaces.0": { $exists: true },
-            status: "ready"
-        };
-        if (eventId) query.event = eventId;
+        // 2. Perform ultra-fast in-memory matching
+        const { findMatchesInMemory } = require("../services/faceService");
+        const matches = findMatchesInMemory(targetEmbedding, 0.5); // 0.5 distance threshold
 
-        const eventImages = await Image.find(query).select("url metadata.detectedFaces event");
-        console.log(`[Identify] Comparing against ${eventImages.length} images...`);
+        console.log(`[Identify] In-memory found ${matches.length} matches.`);
 
-        // 3. Compare embeddings
-        const matches = [];
-        const MATCH_THRESHOLD = 0.55;
-
-        for (const img of eventImages) {
-            for (const face of img.metadata.detectedFaces) {
-                if (!face.descriptor || !Array.isArray(face.descriptor)) continue;
-
-                // Use Python service for comparison
-                const similarity = await compareFaces(targetEmbedding, face.descriptor);
-
-                if (similarity >= MATCH_THRESHOLD) {
-                    matches.push({
-                        url: img.url,
-                        eventId: img.event,
-                        similarity: parseFloat(similarity.toFixed(4)),
-                        faceRectangle: face.faceRectangle
-                    });
-                    break; // Avoid duplicate matches for same image
-                }
-            }
-        }
-
-        // Sort by similarity
-        matches.sort((a, b) => b.similarity - a.similarity);
-
-        const processingTime = Date.now() - startTime;
+        const serviceStatus = (require("../services/faceService").getServiceStatus());
         const responseData = {
             message: `Found ${matches.length} matches!`,
             images: matches.slice(0, 50),
@@ -71,7 +41,9 @@ router.post("/identify", upload.single("selfie"), async (req, res) => {
             processing: false,
             performance: {
                 processingTime,
-                eventSize: eventImages.length
+                cacheSize: serviceStatus.descriptorCount,
+                activeScans: serviceStatus.activeScans,
+                queueLength: serviceStatus.queueLength
             }
         };
 
