@@ -34,6 +34,7 @@ router.post("/identify", upload.single("selfie"), async (req, res) => {
         console.log(`[Identify] In-memory found ${matches.length} matches.`);
 
         const serviceStatus = (require("../services/faceService").getServiceStatus());
+        const processingTime = Date.now() - startTime;
         const responseData = {
             message: `Found ${matches.length} matches!`,
             images: matches.slice(0, 50),

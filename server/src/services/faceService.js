@@ -228,5 +228,9 @@ module.exports = {
     detectAndExtractDescriptors: async (buf) => {
         const res = await enqueueScan(buf);
         return res ? [res] : [];
+    },
+    compareFaces: (d1, d2) => {
+        const dist = faceapi.euclideanDistance(new Float32Array(d1), new Float32Array(d2));
+        return 1 - dist;
     }
 };
