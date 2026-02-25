@@ -12,11 +12,10 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "@azure/cognitiveservices-face": "^5.0.0",
     "@azure/communication-email": "^1.1.0",
     "@azure/communication-sms": "^1.2.0-beta.4",
-    "@azure/ms-rest-js": "^2.7.0",
     "@azure/storage-blob": "^12.31.0",
+    "@tensorflow/tfjs-node": "^4.22.0",
     "@vladmandic/face-api": "^1.7.15",
     "axios": "^1.7.9",
     "bcryptjs": "^2.4.3",
