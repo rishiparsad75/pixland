@@ -5,8 +5,7 @@ const auth = require("../middleware/authMiddleware");
 const limits = require("../middleware/usageLimits");
 const SubscriptionRequest = require("../models/SubscriptionRequest");
 
-console.log("[Subscription] Middleware check - protect:", typeof auth.protect, "admin:", typeof auth.admin);
-if (typeof auth.protect !== 'function') console.error("[CRITICAL] auth.protect is NOT a function!");
+
 
 const multer = require("multer");
 const { uploadToBlob } = require("../services/blobService");

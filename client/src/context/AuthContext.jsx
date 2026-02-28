@@ -9,7 +9,11 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         const storedUser = localStorage.getItem("user");
         if (storedUser) {
-            setUser(JSON.parse(storedUser));
+            try {
+                setUser(JSON.parse(storedUser));
+            } catch {
+                localStorage.removeItem("user");
+            }
         }
     }, []);
 
@@ -18,12 +22,16 @@ export const AuthProvider = ({ children }) => {
         setUser(userData);
     };
 
+    // Bug fix: was calling wrong endpoint /api/auth/me → now /api/users/me
     const refreshUser = async () => {
         try {
-            const { data } = await api.get('/api/auth/me'); // Ensure api is available or use fetch
-            localStorage.setItem("user", JSON.stringify(data));
-            setUser(data);
-            return data;
+            const { data } = await api.get('/api/users/me');
+            // Preserve existing token when refreshing user data
+            const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+            const merged = { ...data, token: data.token || currentUser?.token };
+            localStorage.setItem("user", JSON.stringify(merged));
+            setUser(merged);
+            return merged;
         } catch (error) {
             console.error("Failed to refresh user:", error);
         }

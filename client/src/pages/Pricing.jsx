@@ -138,14 +138,14 @@ const Pricing = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="text-white">Loading...</div>
+            <div className="min-h-screen bg-[#2B2E33] flex items-center justify-center">
+                <div className="w-8 h-8 border-2 border-[#C1C4C8]/20 border-t-[#C1C4C8] rounded-full animate-spin" />
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-purple-900 via-indigo-900 to-blue-900 py-12 px-4 relative">
+        <div className="min-h-screen bg-[#2B2E33] py-16 px-4 relative">
             <div className="max-w-6xl mx-auto">
                 {/* Header */}
                 <motion.div
@@ -153,23 +153,21 @@ const Pricing = () => {
                     animate={{ opacity: 1, y: 0 }}
                     className="text-center mb-12"
                 >
-                    <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
+                    <h1 className="text-4xl md:text-5xl font-black text-[#F5F6F7] mb-4 tracking-tight">
                         Choose Your Plan
                     </h1>
-                    <p className="text-xl text-purple-200">
+                    <p className="text-lg text-[#7B7F85]">
                         {isPhotographer ? 'Upload unlimited photos' : 'Download unlimited photos'} with Premium
                     </p>
                     {onTrial && (
-                        <div className="mt-4 inline-block bg-green-500/20 border border-green-400/30 rounded-lg px-4 py-2">
-                            <p className="text-green-200 text-sm">
-                                🎉 You're on a free trial! Enjoying unlimited access.
-                            </p>
+                        <div className="mt-4 inline-block bg-emerald-500/10 border border-emerald-400/20 rounded-xl px-4 py-2">
+                            <p className="text-emerald-300 text-sm">🎉 You're on a free trial! Enjoying unlimited access.</p>
                         </div>
                     )}
                     {pendingRequest && (
-                        <div className="mt-4 inline-block bg-yellow-500/20 border border-yellow-400/30 rounded-lg px-4 py-2">
-                            <p className="text-yellow-200 text-sm flex items-center gap-2">
-                                <Info size={16} /> Your premium request is pending verification (UTR: {pendingRequest.utr})
+                        <div className="mt-4 inline-block bg-amber-500/10 border border-amber-400/20 rounded-xl px-4 py-2">
+                            <p className="text-amber-300 text-sm flex items-center gap-2">
+                                <Info size={16} /> Your premium request is pending (UTR: {pendingRequest.utr})
                             </p>
                         </div>
                     )}
@@ -183,13 +181,14 @@ const Pricing = () => {
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: 0.1 }}
                     >
-                        <Card className={`p-8 h-full ${subscription?.plan === 'free' && !onTrial ? 'ring-2 ring-white/50' : ''} bg-white/10 backdrop-blur-lg border-white/20`}>
+                        <Card className={`p-8 h-full ${subscription?.plan === 'free' && !onTrial ? 'ring-2 ring-[#F5F6F7]/30' : ''
+                            } bg-[#1A1D20]/60 backdrop-blur-xl border-[#C1C4C8]/12`}>
                             <div className="flex items-center gap-3 mb-6">
                                 <div className={`p-3 rounded-lg bg-gradient-to-br ${freePlan.color}`}>
                                     <freePlan.icon className="w-6 h-6 text-white" />
                                 </div>
                                 <div>
-                                    <h3 className="text-2xl font-bold text-white">{freePlan.name}</h3>
+                                    <h3 className="text-2xl font-black text-[#F5F6F7]">{freePlan.name}</h3>
                                     {subscription?.plan === 'free' && !onTrial && (
                                         <span className="text-sm text-green-400">Current Plan</span>
                                     )}
@@ -198,8 +197,8 @@ const Pricing = () => {
 
                             <div className="mb-6">
                                 <div className="flex items-baseline gap-2">
-                                    <span className="text-4xl font-bold text-white">{freePlan.price}</span>
-                                    <span className="text-gray-300">/ {freePlan.period}</span>
+                                    <span className="text-4xl font-black text-[#F5F6F7]">{freePlan.price}</span>
+                                    <span className="text-[#7B7F85]">/ {freePlan.period}</span>
                                 </div>
                             </div>
 
@@ -207,7 +206,7 @@ const Pricing = () => {
                                 {freePlan.features.map((feature, index) => (
                                     <li key={index} className="flex items-start gap-3">
                                         <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
-                                        <span className="text-gray-200">{feature}</span>
+                                        <span className="text-[#C1C4C8]">{feature}</span>
                                     </li>
                                 ))}
                             </ul>
@@ -226,10 +225,11 @@ const Pricing = () => {
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: 0.2 }}
                     >
-                        <Card className={`p-8 h-full ${isPremium || onTrial ? 'ring-2 ring-purple-400' : ''} bg-gradient-to-br from-purple-900/50 to-pink-900/50 backdrop-blur-lg border-purple-400/30 relative overflow-hidden`}>
+                        <Card className={`p-8 h-full ${isPremium || onTrial ? 'ring-2 ring-[#F5F6F7]/40' : ''
+                            } bg-[#1A1D20]/80 backdrop-blur-xl border-[#C1C4C8]/20 relative overflow-hidden`}>
                             {/* Popular Badge */}
                             <div className="absolute top-4 right-4">
-                                <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
+                                <div className="bg-[#F5F6F7] text-[#2B2E33] text-xs font-black px-3 py-1 rounded-full flex items-center gap-1">
                                     <Sparkles className="w-3 h-3" />
                                     POPULAR
                                 </div>
@@ -240,7 +240,7 @@ const Pricing = () => {
                                     <premiumPlan.icon className="w-6 h-6 text-white" />
                                 </div>
                                 <div>
-                                    <h3 className="text-2xl font-bold text-white">{premiumPlan.name}</h3>
+                                    <h3 className="text-2xl font-black text-[#F5F6F7]">{premiumPlan.name}</h3>
                                     {isPremium && (
                                         <span className="text-sm text-green-400">Current Plan</span>
                                     )}
@@ -252,17 +252,17 @@ const Pricing = () => {
 
                             <div className="mb-6">
                                 <div className="flex items-baseline gap-2">
-                                    <span className="text-4xl font-bold text-white">{premiumPlan.price}</span>
-                                    <span className="text-purple-200">/ {premiumPlan.period}</span>
+                                    <span className="text-4xl font-black text-[#F5F6F7]">{premiumPlan.price}</span>
+                                    <span className="text-[#7B7F85]">/ {premiumPlan.period}</span>
                                 </div>
-                                <p className="text-sm text-purple-300 mt-1">{premiumPlan.trial}</p>
+                                <p className="text-sm text-[#7B7F85] mt-1">{premiumPlan.trial}</p>
                             </div>
 
                             <ul className="space-y-3 mb-8">
                                 {premiumPlan.features.map((feature, index) => (
                                     <li key={index} className="flex items-start gap-3">
                                         <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
-                                        <span className="text-white">{feature}</span>
+                                        <span className="text-[#F5F6F7]">{feature}</span>
                                     </li>
                                 ))}
                             </ul>
@@ -278,7 +278,7 @@ const Pricing = () => {
                             ) : (
                                 <Button
                                     onClick={() => handleUpgradeClick(premiumPlan)}
-                                    className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 shadow-lg shadow-purple-500/20"
+                                    className="w-full bg-[#F5F6F7] hover:bg-[#C1C4C8] text-[#2B2E33] font-black"
                                 >
                                     Upgrade Now
                                 </Button>
@@ -296,7 +296,7 @@ const Pricing = () => {
                     transition={{ delay: 0.4 }}
                     className="mt-12 text-center"
                 >
-                    <p className="text-gray-400 text-sm">
+                    <p className="text-[#7B7F85] text-sm">
                         Pay once and enjoy unlimited access for 30 days. Manual verification takes 1-2 hours.
                     </p>
                 </motion.div>

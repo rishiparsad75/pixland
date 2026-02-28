@@ -46,12 +46,13 @@ function App() {
   return (
     <AuthProvider>
       <Router>
-        <div className="min-h-screen bg-black text-white">
+        <div className="min-h-screen bg-[#2B2E33] text-[#F5F6F7]">
           <Routes>
             <Route path="/" element={<><Navbar /><Home /></>} />
             <Route path="/login" element={<><Navbar /><Login /></>} />
             <Route path="/register" element={<><Navbar /><Register /></>} />
-            <Route path="/photographer-signup" element={<PhotographerSignup />} />
+            {/* Bug fix: Added Navbar to photographer-signup route */}
+            <Route path="/photographer-signup" element={<><Navbar /><PhotographerSignup /></>} />
             <Route path="/forgot-password" element={<><Navbar /><ForgotPassword /></>} />
             <Route path="/reset-password" element={<><Navbar /><ResetPassword /></>} />
             <Route path="/event/:token" element={<><Navbar /><EventLanding /></>} />

@@ -1,23 +1,26 @@
-import { useState, useContext } from "react";
+import { useState, useContext, useEffect } from "react";
 import AuthContext from "../context/AuthContext";
 import api from "../api/axios";
 import { useNavigate, Link } from "react-router-dom";
-import { Eye, EyeOff, AlertCircle, X, ShieldAlert } from "lucide-react";
+import { Eye, EyeOff, ShieldAlert, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Footer from "../components/Footer";
 
 const Login = () => {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [mobile, setMobile] = useState("");
-    const [otp, setOtp] = useState("");
-    const [loginMethod, setLoginMethod] = useState("email"); // 'email' or 'mobile'
-    const [step, setStep] = useState(1); // 1 for mobile entry, 2 for OTP entry
     const [showPassword, setShowPassword] = useState(false);
     const { login } = useContext(AuthContext);
     const navigate = useNavigate();
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
+
+    // Bug fix: auto-dismiss error after 5 seconds
+    useEffect(() => {
+        if (!error) return;
+        const timer = setTimeout(() => setError(""), 5000);
+        return () => clearTimeout(timer);
+    }, [error]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -26,219 +29,198 @@ const Login = () => {
         try {
             const res = await api.post("/api/users/login", { email, password });
             login(res.data);
-
             navigate("/");
         } catch (err) {
-            setError(err.response?.data?.message || "Login failed");
+            setError(err.response?.data?.message || "Login failed. Please check your credentials.");
         } finally {
             setLoading(false);
         }
     };
-
-    const handleSendOtp = async (e) => {
-        e.preventDefault();
-        setError("");
-        setLoading(true);
-        try {
-            // Validate mobile format (simple check)
-            if (!mobile.startsWith("+")) {
-                setError("Please include country code (e.g., +91)");
-                setLoading(false);
-                return;
-            }
-            await api.post("/api/users/send-otp", { mobile });
-            setStep(2);
-
-        } catch (err) {
-            setError(err.response?.data?.message || "Failed to send OTP");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleVerifyOtp = async (e) => {
-        e.preventDefault();
-        setError("");
-        setLoading(true);
-        try {
-            const res = await api.post("/api/users/verify-otp", { mobile, otp });
-            if (res.data.newUser) {
-
-                // Redirect to a complete profile page or handle new user
-                navigate("/register", { state: { mobile } });
-            } else {
-                login(res.data);
-                navigate("/");
-            }
-        } catch (err) {
-            setError(err.response?.data?.message || "Invalid OTP");
-        } finally {
-            setLoading(false);
-        }
-    };
+    // Note: Removed dead OTP/mobile login code (mobile, otp, loginMethod, step, handleSendOtp, handleVerifyOtp)
+    // These were declared but never rendered — cleaned up.
 
     return (
-        <div className="flex min-h-screen bg-white">
-            {/* Left Side - Image & Testimonial */}
-            <div className="hidden lg:flex lg:w-1/2 bg-black relative overflow-hidden">
+        <div className="flex min-h-screen bg-[#2B2E33]">
+
+            {/* Left Side — Hero Panel */}
+            <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-[#1A1D20]">
                 <img
                     src="https://images.unsplash.com/photo-1516035069371-29a1b244cc32?q=80&w=2538&auto=format&fit=crop"
-                    alt="Photographer"
-                    className="absolute inset-0 w-full h-full object-cover opacity-60"
+                    alt="Photographer at work"
+                    className="absolute inset-0 w-full h-full object-cover opacity-40"
                 />
+                {/* Overlay gradient */}
+                <div className="absolute inset-0 bg-gradient-to-tr from-[#1A1D20]/90 via-[#2B2E33]/50 to-transparent" />
+
+                {/* Text content on top of image */}
+                <div className="relative z-10 flex flex-col justify-end p-14 pb-16">
+                    <div className="flex items-center gap-2 mb-6">
+                        <div className="w-2 h-2 rounded-full bg-[#F5F6F7] animate-pulse" />
+                        <span className="text-[#7B7F85] text-xs uppercase font-bold tracking-widest">PixLand.ai Platform</span>
+                    </div>
+                    <h2 className="text-4xl font-black text-[#F5F6F7] leading-tight mb-4">
+                        Your event photos,<br />
+                        <span className="shimmer-text">found instantly.</span>
+                    </h2>
+                    <p className="text-[#7B7F85] leading-relaxed max-w-xs">
+                        AI-powered face recognition delivers your photos the moment the shutter clicks.
+                    </p>
+                </div>
             </div>
 
-            {/* Right Side - Login Form */}
-            <div className="w-full lg:w-1/2 flex flex-col p-8 md:p-20 justify-between relative">
+            {/* Right Side — Login Form */}
+            <div className="w-full lg:w-1/2 flex flex-col p-8 md:p-16 justify-center relative overflow-hidden">
+                {/* Subtle background orb */}
+                <div className="absolute top-0 right-0 w-72 h-72 bg-[#C1C4C8]/4 rounded-full blur-[80px] pointer-events-none" />
+
                 {/* Logo */}
-                <div className="absolute top-8 left-8 flex items-center gap-2">
-                    <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold">P</div>
-                    <span className="text-xl font-bold text-gray-800">PixLand<span className="text-indigo-600">.ai</span> <span className="text-sm text-indigo-500 font-bold ml-2">by Rishi Parsad</span></span>
+                <div className="flex items-center gap-2.5 mb-12">
+                    <div className="w-9 h-9 bg-[#F5F6F7] rounded-xl flex items-center justify-center">
+                        <span className="text-[#2B2E33] font-black text-base">P</span>
+                    </div>
+                    <div>
+                        <div className="text-xl font-black text-[#F5F6F7]">
+                            PixLand<span className="text-[#7B7F85]">.ai</span>
+                        </div>
+                        <div className="text-[9px] text-[#7B7F85] uppercase tracking-widest font-semibold">by Rishi Parsad</div>
+                    </div>
                 </div>
 
-                <div className="flex-1 flex flex-col justify-center max-w-md mx-auto w-full">
+                <div className="max-w-md w-full">
                     <motion.div
-                        initial={{ opacity: 0, y: 20 }}
+                        initial={{ opacity: 0, y: 16 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.5 }}
                     >
-                        <h2 className="text-3xl font-bold text-slate-800 mb-2">Sign in to PixLand.ai</h2>
-                        <p className="text-gray-500 mb-8 text-sm">Choose your preferred login method</p>
+                        <h1 className="text-3xl font-black text-[#F5F6F7] mb-1">Welcome back</h1>
+                        <p className="text-[#7B7F85] text-sm mb-8">Sign in to your PixLand account</p>
                     </motion.div>
 
-                    {/* Premium Error Popup */}
+                    {/* Error Toast */}
                     <AnimatePresence>
                         {error && (
                             <motion.div
-                                initial={{ opacity: 0, scale: 0.9, y: -20 }}
-                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 0.9, y: -20 }}
-                                className="mb-6 overflow-hidden bg-red-50 border-l-4 border-red-500 rounded-xl shadow-lg shadow-red-200"
+                                initial={{ opacity: 0, y: -12, scale: 0.96 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, y: -12, scale: 0.96 }}
+                                className="mb-6 bg-red-950/50 border border-red-500/30 rounded-xl overflow-hidden"
                             >
                                 <div className="p-4 flex items-start gap-3">
-                                    <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                        <ShieldAlert className="text-red-600" size={20} />
+                                    <div className="w-8 h-8 bg-red-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                                        <ShieldAlert className="text-red-400" size={16} />
                                     </div>
                                     <div className="flex-1">
-                                        <h3 className="text-sm font-bold text-red-800">Authentication Error</h3>
-                                        <p className="text-xs text-red-600 mt-0.5 leading-relaxed">{error}</p>
+                                        <p className="text-sm font-semibold text-red-300">Authentication Error</p>
+                                        <p className="text-xs text-red-400/80 mt-0.5">{error}</p>
                                     </div>
-                                    <button
-                                        onClick={() => setError("")}
-                                        className="text-red-400 hover:text-red-600 p-1"
-                                    >
-                                        <X size={16} />
+                                    <button onClick={() => setError("")} className="text-red-500 hover:text-red-300">
+                                        <X size={15} />
                                     </button>
                                 </div>
+                                {/* Auto-dismiss progress bar */}
                                 <motion.div
                                     initial={{ width: "100%" }}
                                     animate={{ width: "0%" }}
                                     transition={{ duration: 5, ease: "linear" }}
-                                    className="h-1 bg-red-200"
+                                    className="h-0.5 bg-red-500/40"
                                 />
                             </motion.div>
                         )}
                     </AnimatePresence>
 
-                    <div className="space-y-6">
-                        {/* Email Login Section */}
-                        <motion.form
-                            onSubmit={handleSubmit}
-                            className="space-y-4"
-                            animate={error ? {
-                                x: [0, -10, 10, -10, 10, 0],
-                                transition: { duration: 0.4 }
-                            } : {}}
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <motion.div
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.1 }}
                         >
-                            <motion.div
-                                initial={{ opacity: 0, x: -10 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: 0.2 }}
-                            >
-                                <input
-                                    type="email"
-                                    placeholder="Email Address"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-600/50 focus:border-indigo-600 transition-all font-medium"
-                                    required
-                                />
-                            </motion.div>
-                            <motion.div
-                                className="relative"
-                                initial={{ opacity: 0, x: -10 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: 0.3 }}
-                            >
-                                <input
-                                    type={showPassword ? "text" : "password"}
-                                    placeholder="Password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-600/50 focus:border-indigo-600 transition-all pr-12 font-medium"
-                                    required
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-indigo-600 transition-colors"
-                                >
-                                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                                </button>
-                            </motion.div>
-                            <div className="flex justify-end mt-[-8px]">
-                                <Link to="/forgot-password" size="sm" className="text-xs text-indigo-600 hover:underline font-bold">
-                                    Forgot Password?
-                                </Link>
-                            </div>
-                            <motion.button
-                                whileHover={{ scale: 1.01 }}
-                                whileTap={{ scale: 0.99 }}
-                                type="submit"
-                                disabled={loading}
-                                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl transition-all duration-200 shadow-xl shadow-indigo-600/20 disabled:opacity-50 flex items-center justify-center gap-2 mt-2"
-                            >
-                                {loading ? (
-                                    <>
-                                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                        <span>Authenticating...</span>
-                                    </>
-                                ) : "Sign In"}
-                            </motion.button>
-                        </motion.form>
-                    </div>
+                            <label className="block text-xs font-semibold text-[#7B7F85] uppercase tracking-wider mb-2">Email Address</label>
+                            <input
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                className="w-full px-4 py-3 rounded-xl bg-[#1A1D20]/80 border border-[#C1C4C8]/15 text-[#F5F6F7] placeholder-[#7B7F85] focus:outline-none focus:ring-2 focus:ring-[#C1C4C8]/30 focus:border-[#C1C4C8]/30 transition-all text-sm"
+                                placeholder="you@example.com"
+                                required
+                            />
+                        </motion.div>
 
+                        <motion.div
+                            className="relative"
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.2 }}
+                        >
+                            <label className="block text-xs font-semibold text-[#7B7F85] uppercase tracking-wider mb-2">Password</label>
+                            <input
+                                type={showPassword ? "text" : "password"}
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="w-full px-4 py-3 pr-12 rounded-xl bg-[#1A1D20]/80 border border-[#C1C4C8]/15 text-[#F5F6F7] placeholder-[#7B7F85] focus:outline-none focus:ring-2 focus:ring-[#C1C4C8]/30 focus:border-[#C1C4C8]/30 transition-all text-sm"
+                                placeholder="••••••••"
+                                required
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-4 bottom-3.5 text-[#7B7F85] hover:text-[#C1C4C8] transition-colors"
+                            >
+                                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                            </button>
+                        </motion.div>
 
+                        <div className="flex justify-end">
+                            <Link to="/forgot-password" className="text-xs text-[#7B7F85] hover:text-[#C1C4C8] font-semibold transition-colors">
+                                Forgot password?
+                            </Link>
+                        </div>
+
+                        <motion.button
+                            whileHover={{ scale: 1.01 }}
+                            whileTap={{ scale: 0.99 }}
+                            type="submit"
+                            disabled={loading}
+                            className="w-full bg-[#F5F6F7] hover:bg-[#C1C4C8] text-[#2B2E33] font-black py-3.5 rounded-xl transition-all duration-200 shadow-lg disabled:opacity-50 flex items-center justify-center gap-2 text-sm tracking-wide mt-2"
+                        >
+                            {loading ? (
+                                <>
+                                    <div className="w-4 h-4 border-2 border-[#2B2E33]/30 border-t-[#2B2E33] rounded-full animate-spin" />
+                                    Verifying...
+                                </>
+                            ) : "Sign In"}
+                        </motion.button>
+                    </form>
 
                     <motion.div
-                        className="mt-10 space-y-3"
+                        className="mt-8 space-y-4"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        transition={{ delay: 0.5 }}
+                        transition={{ delay: 0.4 }}
                     >
-                        <p className="text-center text-sm text-gray-500">
+                        <p className="text-center text-sm text-[#7B7F85]">
                             Don't have an account?{" "}
-                            <Link to="/register" className="text-indigo-600 hover:underline font-black">
+                            <Link to="/register" className="text-[#C1C4C8] hover:text-[#F5F6F7] font-bold transition-colors">
                                 Join Now
                             </Link>
                         </p>
-                        <div className="flex items-center gap-4 py-2">
-                            <div className="h-px flex-1 bg-gray-100" />
-                            <span className="text-[10px] uppercase font-black tracking-widest text-gray-400">Collaborators</span>
-                            <div className="h-px flex-1 bg-gray-100" />
+
+                        <div className="flex items-center gap-4">
+                            <div className="h-px flex-1 bg-[#C1C4C8]/10" />
+                            <span className="text-[9px] uppercase font-black tracking-widest text-[#7B7F85]/60">Professionals</span>
+                            <div className="h-px flex-1 bg-[#C1C4C8]/10" />
                         </div>
-                        <p className="text-center text-sm text-gray-500 flex items-center justify-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+
+                        <p className="text-center text-sm text-[#7B7F85] flex items-center justify-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#C1C4C8]/60" />
                             Are you a photographer?{" "}
-                            <Link to="/photographer-signup" className="text-purple-600 hover:underline font-black">
+                            <Link to="/photographer-signup" className="text-[#C1C4C8] hover:text-[#F5F6F7] font-bold transition-colors">
                                 Studio Portal
                             </Link>
                         </p>
                     </motion.div>
                 </div>
 
-                {/* Footer with Branding */}
-                <Footer variant="light" />
+                <Footer />
             </div>
         </div>
     );

@@ -2,7 +2,7 @@ import { useContext, useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import AuthContext from "../context/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, Camera, User, LogOut, Upload as UploadIcon, Image as ImageIcon, Users, FolderHeart, LayoutDashboard } from "lucide-react";
+import { Menu, X, Camera, User, LogOut, Upload as UploadIcon, Image as ImageIcon, LayoutDashboard } from "lucide-react";
 import Button from "./ui/Button";
 
 const Navbar = () => {
@@ -12,108 +12,121 @@ const Navbar = () => {
     const location = useLocation();
 
     useEffect(() => {
-        const handleScroll = () => {
-            setIsScrolled(window.scrollY > 20);
-        };
+        const handleScroll = () => setIsScrolled(window.scrollY > 20);
         window.addEventListener("scroll", handleScroll);
         return () => window.removeEventListener("scroll", handleScroll);
     }, []);
 
+    // Bug fix: removed duplicate "My Collections" link that also pointed to /gallery
     const navLinks = [
-        ...(user?.role === 'photographer' || user?.role === 'super-admin' ? [{ name: "Upload", path: "/photographer/upload", icon: UploadIcon }] : []),
+        ...(user?.role === 'photographer' || user?.role === 'super-admin'
+            ? [{ name: "Upload", path: "/photographer/upload", icon: UploadIcon }]
+            : []),
         { name: "Find My Photos", path: "/face-scan", icon: Camera },
         { name: "Gallery", path: "/gallery", icon: ImageIcon },
-        ...(user?.role !== 'super-admin' ? [{ name: "Pricing", path: "/pricing", icon: Users }] : []),
-        ...(user?.role === 'user' ? [{ name: "My Collections", path: "/gallery", icon: FolderHeart }] : []),
     ];
+
+    const isActive = (path) => location.pathname === path;
 
     return (
         <nav
-            className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? "bg-black/50 backdrop-blur-md border-b border-white/10 py-3" : "bg-transparent py-5"
+            className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled
+                    ? "bg-[#2B2E33]/80 backdrop-blur-xl border-b border-[#C1C4C8]/10 py-3 shadow-lg shadow-black/20"
+                    : "bg-transparent py-5"
                 }`}
         >
             <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
+
                 {/* Logo */}
-                <Link to="/" className="flex items-center gap-2 group">
-                    <img src="/logo.svg" alt="PixLand Logo" className="w-8 h-8 rounded-lg shadow-lg shadow-indigo-500/30 group-hover:shadow-indigo-500/50 transition-all" />
-                    <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
-                        PixLand<span className="text-indigo-400">.ai</span>
-                        <span className="ml-2 text-xs text-gray-400 font-semibold uppercase tracking-wider opacity-100">by Rishi Parsad</span>
-                    </span>
+                <Link to="/" className="flex items-center gap-2.5 group">
+                    <div className="w-8 h-8 rounded-lg bg-[#F5F6F7] flex items-center justify-center shadow-md group-hover:shadow-[#C1C4C8]/30 transition-all duration-300">
+                        <img src="/logo.svg" alt="PixLand Logo" className="w-5 h-5" onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} />
+                        <span className="text-[#2B2E33] font-black text-sm hidden">P</span>
+                    </div>
+                    <div className="flex flex-col leading-none">
+                        <span className="text-lg font-black tracking-tight text-[#F5F6F7]">
+                            PixLand<span className="text-[#7B7F85]">.ai</span>
+                        </span>
+                        <span className="text-[9px] text-[#7B7F85] font-semibold uppercase tracking-widest">by Rishi Parsad</span>
+                    </div>
                 </Link>
 
                 {/* Desktop Nav */}
-                <div className="hidden md:flex items-center gap-8">
+                <div className="hidden md:flex items-center gap-6">
                     {user ? (
                         <>
                             {navLinks.map((link) => (
                                 <Link
-                                    key={`${link.name}-${link.path}`}
+                                    key={link.path}
                                     to={link.path}
-
-                                    className={`flex items-center gap-2 text-sm font-medium transition-colors ${location.pathname === link.path
-                                        ? "text-white"
-                                        : "text-gray-400 hover:text-white"
+                                    className={`flex items-center gap-1.5 text-sm font-medium transition-all duration-200 px-3 py-1.5 rounded-lg ${isActive(link.path)
+                                            ? "text-[#F5F6F7] bg-[#C1C4C8]/15"
+                                            : "text-[#7B7F85] hover:text-[#C1C4C8] hover:bg-[#C1C4C8]/8"
                                         }`}
                                 >
-                                    <link.icon size={16} />
+                                    <link.icon size={15} />
                                     {link.name}
                                 </Link>
                             ))}
 
-                            <div className="h-6 w-px bg-white/10" />
+                            <div className="h-5 w-px bg-[#C1C4C8]/20" />
 
-                            <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-3">
                                 {user.role === 'super-admin' && (
                                     <Link to="/admin/dashboard">
-                                        <Button variant="ghost" size="sm" className="hidden lg:flex gap-2 text-indigo-400 hover:bg-indigo-500/10">
-                                            <LayoutDashboard size={14} />
-                                            Admin
+                                        <Button variant="outline" size="sm" className="gap-1.5 border-[#7B7F85]/40 text-[#7B7F85] hover:bg-[#7B7F85]/10">
+                                            <LayoutDashboard size={13} /> Admin
                                         </Button>
                                     </Link>
                                 )}
                                 {user.role === 'photographer' && (
                                     <Link to="/photographer/dashboard">
-                                        <Button variant="ghost" size="sm" className="hidden lg:flex gap-2 text-indigo-400 hover:bg-indigo-500/10">
-                                            <LayoutDashboard size={14} />
-                                            Hub
+                                        <Button variant="outline" size="sm" className="gap-1.5 border-[#7B7F85]/40 text-[#7B7F85] hover:bg-[#7B7F85]/10">
+                                            <LayoutDashboard size={13} /> Hub
                                         </Button>
                                     </Link>
                                 )}
-                                <Link to="/profile" className="flex items-center gap-2 group pl-2 border-l border-white/10">
+
+                                {/* User Avatar */}
+                                <Link to="/profile" className="flex items-center gap-2.5 group pl-3 border-l border-[#C1C4C8]/15">
                                     <div className="relative">
-                                        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-gray-700 to-gray-600 flex items-center justify-center border border-white/10 group-hover:border-indigo-500 transition-colors">
-                                            <User size={14} className="text-white" />
+                                        <div className="w-8 h-8 rounded-full bg-[#7B7F85]/30 border border-[#C1C4C8]/20 flex items-center justify-center group-hover:border-[#C1C4C8]/50 transition-colors">
+                                            <User size={14} className="text-[#C1C4C8]" />
                                         </div>
                                         {(user.role === 'super-admin' || user.role === 'photographer') && (
-                                            <div className={`absolute -top-1 -right-1 w-3 h-3 ${user.role === 'super-admin' ? 'bg-indigo-500' : 'bg-purple-500'} rounded-full border-2 border-black`} title={user.role} />
+                                            <div className={`absolute -top-1 -right-1 w-3 h-3 ${user.role === 'super-admin' ? 'bg-[#F5F6F7]' : 'bg-[#C1C4C8]'} rounded-full border-2 border-[#2B2E33]`} />
                                         )}
                                     </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-sm font-medium text-white group-hover:text-indigo-400 transition-colors">{user.name}</span>
-                                        <span className="text-[10px] text-gray-500 uppercase tracking-wider">{user.role}</span>
+                                    <div className="flex flex-col leading-none">
+                                        <span className="text-sm font-semibold text-[#C1C4C8] group-hover:text-[#F5F6F7] transition-colors">{user.name}</span>
+                                        <span className="text-[9px] text-[#7B7F85] uppercase tracking-wider">{user.role}</span>
                                     </div>
                                 </Link>
-                                <Button variant="ghost" size="sm" onClick={logout} className="text-white/40 hover:text-red-400 hover:bg-red-500/10 ml-1">
+
+                                <button
+                                    onClick={logout}
+                                    className="p-2 rounded-lg text-[#7B7F85] hover:text-red-400 hover:bg-red-500/10 transition-all duration-200"
+                                    title="Sign Out"
+                                >
                                     <LogOut size={16} />
-                                </Button>
+                                </button>
                             </div>
                         </>
                     ) : (
-
-                        <div className="flex gap-2 bg-white/5 p-1 rounded-xl border border-white/10">
+                        <div className="flex gap-2 bg-[#1A1D20]/60 p-1 rounded-xl border border-[#C1C4C8]/10">
                             <Link to="/login">
                                 <Button
-                                    variant={location.pathname === "/login" ? "primary" : "ghost"}
-                                    className={location.pathname === "/login" ? "shadow-indigo-500/20" : "text-gray-400 hover:text-white"}
+                                    variant={isActive("/login") ? "primary" : "ghost"}
+                                    size="sm"
+                                    className={isActive("/login") ? "" : "text-[#7B7F85] hover:text-[#C1C4C8]"}
                                 >
                                     Sign In
                                 </Button>
                             </Link>
                             <Link to="/register">
                                 <Button
-                                    variant={location.pathname === "/register" ? "primary" : "ghost"}
-                                    className={location.pathname === "/register" ? "shadow-indigo-500/20" : "text-gray-400 hover:text-white"}
+                                    variant={isActive("/register") ? "primary" : "secondary"}
+                                    size="sm"
                                 >
                                     Get Started
                                 </Button>
@@ -122,12 +135,13 @@ const Navbar = () => {
                     )}
                 </div>
 
-                {/* Mobile Menu Toggle */}
+                {/* Mobile Toggle */}
                 <button
-                    className="md:hidden text-white"
+                    className="md:hidden text-[#C1C4C8] hover:text-[#F5F6F7] transition-colors p-2 rounded-lg hover:bg-[#C1C4C8]/10"
                     onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                    aria-label="Toggle menu"
                 >
-                    {mobileMenuOpen ? <X /> : <Menu />}
+                    {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
                 </button>
             </div>
 
@@ -138,56 +152,63 @@ const Navbar = () => {
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: "auto" }}
                         exit={{ opacity: 0, height: 0 }}
-                        className="md:hidden bg-black/95 backdrop-blur-xl border-b border-white/10 overflow-hidden"
+                        className="md:hidden bg-[#2B2E33]/98 backdrop-blur-xl border-b border-[#C1C4C8]/10 overflow-hidden"
                     >
-                        <div className="p-6 flex flex-col gap-4">
+                        <div className="p-5 flex flex-col gap-3">
                             {user ? (
                                 <>
-                                    <Link to="/profile" className="flex items-center gap-3 mb-4 p-3 rounded-lg bg-white/5 border border-white/10" onClick={() => setMobileMenuOpen(false)}>
-                                        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center">
-                                            <span className="text-lg font-bold text-white">{user.name[0]}</span>
+                                    {/* User card */}
+                                    <Link
+                                        to="/profile"
+                                        onClick={() => setMobileMenuOpen(false)}
+                                        className="flex items-center gap-3 p-3 rounded-xl bg-[#C1C4C8]/8 border border-[#C1C4C8]/12 mb-2"
+                                    >
+                                        <div className="w-10 h-10 rounded-full bg-[#7B7F85]/40 border border-[#C1C4C8]/25 flex items-center justify-center text-lg font-bold text-[#F5F6F7]">
+                                            {user.name[0]}
                                         </div>
                                         <div>
-                                            <p className="text-white font-medium">{user.name}</p>
-                                            <p className="text-xs text-gray-400">{user.email}</p>
+                                            <p className="text-[#F5F6F7] font-semibold text-sm">{user.name}</p>
+                                            <p className="text-[10px] text-[#7B7F85]">{user.email}</p>
                                         </div>
                                     </Link>
+
                                     {navLinks.map((link) => (
                                         <Link
-                                            key={`${link.name}-${link.path}`}
+                                            key={link.path}
                                             to={link.path}
-
                                             onClick={() => setMobileMenuOpen(false)}
-                                            className="flex items-center gap-3 text-gray-300 hover:text-white py-2"
+                                            className={`flex items-center gap-3 py-2.5 px-3 rounded-lg text-sm font-medium transition-colors ${isActive(link.path)
+                                                    ? "text-[#F5F6F7] bg-[#C1C4C8]/12"
+                                                    : "text-[#7B7F85] hover:text-[#C1C4C8]"
+                                                }`}
                                         >
-                                            <link.icon size={18} />
+                                            <link.icon size={17} />
                                             {link.name}
                                         </Link>
                                     ))}
+
                                     {user.role === 'super-admin' && (
-                                        <Link
-                                            to="/admin/dashboard"
-                                            onClick={() => setMobileMenuOpen(false)}
-                                            className="flex items-center gap-3 text-indigo-400 hover:text-indigo-300 py-2"
+                                        <Link to="/admin/dashboard" onClick={() => setMobileMenuOpen(false)}
+                                            className="flex items-center gap-3 py-2.5 px-3 rounded-lg text-sm text-[#C1C4C8] hover:text-[#F5F6F7] transition-colors"
                                         >
-                                            <LayoutDashboard size={18} />
-                                            Admin Panel
+                                            <LayoutDashboard size={17} /> Admin Panel
                                         </Link>
                                     )}
                                     {user.role === 'photographer' && (
-                                        <Link
-                                            to="/photographer/dashboard"
-                                            onClick={() => setMobileMenuOpen(false)}
-                                            className="flex items-center gap-3 text-indigo-400 hover:text-indigo-300 py-2"
+                                        <Link to="/photographer/dashboard" onClick={() => setMobileMenuOpen(false)}
+                                            className="flex items-center gap-3 py-2.5 px-3 rounded-lg text-sm text-[#C1C4C8] hover:text-[#F5F6F7] transition-colors"
                                         >
-                                            <LayoutDashboard size={18} />
-                                            Photographer Hub
+                                            <LayoutDashboard size={17} /> Photographer Hub
                                         </Link>
                                     )}
 
-                                    <button onClick={logout} className="flex items-center gap-3 text-red-400 py-2 mt-2">
-                                        <LogOut size={18} />
-                                        Sign Out
+                                    <div className="h-px bg-[#C1C4C8]/10 my-1" />
+
+                                    <button
+                                        onClick={() => { logout(); setMobileMenuOpen(false); }}
+                                        className="flex items-center gap-3 py-2.5 px-3 rounded-lg text-sm text-red-400 hover:text-red-300 transition-colors"
+                                    >
+                                        <LogOut size={17} /> Sign Out
                                     </button>
                                 </>
                             ) : (
